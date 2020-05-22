@@ -1,8 +1,6 @@
 #pragma once
 
-extern "C" {
-unsigned long int micros();  // Provided by <Arduino.h>
-}
+#include <inttypes.h>
 
 // Convenience classes for handling delays, measure elapsed time, etc.,
 // providing safety against common errors like confusing time units
@@ -100,11 +98,24 @@ inline Interval operator-(const Interval& a, const Interval& b) {
 //  POD; pass it by value.
 class Uptime {
  public:
-  static const Uptime Now() { return Uptime(micros()); }
+  static const Uptime Now();
+
   static const Uptime Start() { return Uptime(0); }
   static const Uptime Max() { return Uptime(0x7FFFFFFFFFFFFFFF); }
 
   Uptime() : micros_(0) {}
+  Uptime(const Uptime& other) : micros_(other.micros_) {}
+  Uptime(const volatile Uptime& other) : micros_(other.micros_) {}
+
+  Uptime& operator=(const Uptime& other) {
+    micros_ = other.micros_;
+    return *this;
+  }
+
+  Uptime& operator=(const volatile Uptime& other) {
+    micros_ = other.micros_;
+    return *this;
+  }
 
   int64_t ToMicros() const { return micros_; }
   int64_t ToMillis() const { return micros_ / 1000LL; }
