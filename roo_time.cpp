@@ -1,10 +1,10 @@
 #include "roo_time.h"
 
+#include "esp_attr.h"
+
 extern "C" {
 int64_t esp_timer_get_time();
 }
-
-#include "esp_attr.h"
 
 namespace roo_time {
 

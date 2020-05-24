@@ -11,6 +11,9 @@ cc_library(
     includes = [
         ".",
     ],
+    deps = [
+        "//testing:arduino",
+    ],
 )
 
 cc_test(
