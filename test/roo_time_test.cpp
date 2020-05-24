@@ -96,4 +96,74 @@ TEST(Uptime, Comparison) {
   EXPECT_FALSE(base + Micros(169) <= base + Micros(150));
 }
 
+TEST(WallTime, Arithmetics) {
+  WallTime a = WallTime(Micros(150));
+  WallTime b = WallTime(Micros(27));
+  EXPECT_EQ(123, (a - b).inMicros());
+  Interval delta = Micros(13);
+  EXPECT_EQ(136, (a - b + delta).inMicros());
+  EXPECT_EQ(136, (a + delta - b).inMicros());
+
+  a += delta;
+  EXPECT_EQ(163, a.sinceEpoch().inMicros());
+  a -= delta;
+  EXPECT_EQ(150, a.sinceEpoch().inMicros());
+}
+
+TEST(WallTime, Comparison) {
+  WallTime base;
+  EXPECT_EQ(base + Micros(150), base + Micros(150));
+  EXPECT_FALSE(base + Micros(150) != base + Micros(150));
+  EXPECT_NE(base + Micros(150), base + Micros(151));
+  EXPECT_FALSE(base + Micros(150) == base + Micros(151));
+  EXPECT_LE(base + Micros(150), base + Micros(150));
+  EXPECT_FALSE(base + Micros(150) > base + Micros(150));
+  EXPECT_GE(base + Micros(150), base + Micros(150));
+  EXPECT_FALSE(base + Micros(150) < base + Micros(150));
+  EXPECT_LT(base + Micros(139), base + Micros(150));
+  EXPECT_FALSE(base + Micros(139) >= base + Micros(150));
+  EXPECT_GT(base + Micros(169), base + Micros(150));
+  EXPECT_FALSE(base + Micros(169) <= base + Micros(150));
+}
+
+TEST(DateTime, FromDateUTC) {
+  DateTime d(2020, 05, 24, timezone::UTC);
+  EXPECT_EQ(2020, d.year());
+  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(24, d.day());
+  EXPECT_EQ(SUNDAY, d.dayOfWeek());
+  EXPECT_EQ(145, d.dayOfYear());
+  EXPECT_EQ(1590278400000000, d.walltime().sinceEpoch().inMicros());
+}
+
+TEST(DateTime, FromDateCest) {
+  DateTime d(2020, 05, 24, TimeZone(Hours(2)));
+  EXPECT_EQ(2020, d.year());
+  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(24, d.day());
+  EXPECT_EQ(SUNDAY, d.dayOfWeek());
+  EXPECT_EQ(145, d.dayOfYear());
+  EXPECT_EQ(1590271200000000, d.walltime().sinceEpoch().inMicros());
+}
+
+TEST(DateTime, FromDateTimeCest) {
+  DateTime d(2020, 05, 25, 23, 57, 31, 1, TimeZone(Hours(2)));
+  EXPECT_EQ(2020, d.year());
+  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(25, d.day());
+  EXPECT_EQ(MONDAY, d.dayOfWeek());
+  EXPECT_EQ(146, d.dayOfYear());
+  EXPECT_EQ(1590443851000001, d.walltime().sinceEpoch().inMicros());
+}
+
+TEST(DateTime, FromUnixCest) {
+  DateTime d(WallTime(Micros(1590443851000001)), TimeZone(Hours(2)));
+  EXPECT_EQ(2020, d.year());
+  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(25, d.day());
+  EXPECT_EQ(MONDAY, d.dayOfWeek());
+  EXPECT_EQ(146, d.dayOfYear());
+  EXPECT_EQ(1590443851000001, d.walltime().sinceEpoch().inMicros());
+}
+
 }  // namespace roo_time

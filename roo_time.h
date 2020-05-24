@@ -13,15 +13,15 @@ namespace roo_time {
 // POD; pass it by value.
 class Interval {
  public:
-  Interval() : micros_(0) {}
+  constexpr Interval() : micros_(0) {}
 
   static const Interval Max() { return Interval(0x7FFFFFFFFFFFFFFF); }
 
-  int64_t inMicros() const { return micros_; }
-  int64_t inMillis() const { return micros_ / 1000LL; }
-  int64_t inSeconds() const { return micros_ / 1000000LL; }
-  int64_t inMinutes() const { return micros_ / 60000000LL; }
-  int64_t inHours() const { return micros_ / 3600000000LL; }
+  constexpr int64_t inMicros() const { return micros_; }
+  constexpr int64_t inMillis() const { return micros_ / 1000LL; }
+  constexpr int64_t inSeconds() const { return micros_ / 1000000LL; }
+  constexpr int64_t inMinutes() const { return micros_ / 60000000LL; }
+  constexpr int64_t inHours() const { return micros_ / 3600000000LL; }
 
   Interval& operator+=(const Interval& other) {
     micros_ += other.inMicros();
@@ -34,30 +34,30 @@ class Interval {
   }
 
  private:
-  friend Interval Micros(int64_t micros);
-  friend Interval Millis(int64_t millis);
-  friend Interval Seconds(int64_t seconds);
-  friend Interval Minutes(int64_t minutes);
-  friend Interval Hours(int64_t hours);
+  friend constexpr Interval Micros(int64_t micros);
+  friend constexpr Interval Millis(int64_t millis);
+  friend constexpr Interval Seconds(int64_t seconds);
+  friend constexpr Interval Minutes(int64_t minutes);
+  friend constexpr Interval Hours(int64_t hours);
 
-  Interval(int64_t micros) : micros_(micros) {}
+  constexpr Interval(int64_t micros) : micros_(micros) {}
 
   int64_t micros_;
 };
 
-inline Interval Micros(int64_t micros) { return Interval(micros); }
+inline constexpr Interval Micros(int64_t micros) { return Interval(micros); }
 
-inline Interval Millis(int64_t millis) { return Interval(millis * 1000); }
+inline constexpr Interval Millis(int64_t millis) { return Interval(millis * 1000); }
 
-inline Interval Seconds(int64_t seconds) {
+inline constexpr Interval Seconds(int64_t seconds) {
   return Interval(seconds * 1000 * 1000);
 }
 
-inline Interval Minutes(int64_t minutes) {
+inline constexpr Interval Minutes(int64_t minutes) {
   return Interval(minutes * 1000 * 1000 * 60);
 }
 
-inline Interval Hours(int64_t hours) {
+inline constexpr Interval Hours(int64_t hours) {
   return Interval(hours * 1000 * 1000 * 60 * 60);
 }
 
@@ -192,6 +192,7 @@ inline Uptime operator+(const Interval& i, const Uptime& u) {
 // POD; pass it by value.
 class WallTime {
  public:
+  WallTime() {}
   explicit WallTime(Interval since_epoch) : since_epoch_(since_epoch) {}
 
   Interval sinceEpoch() const { return since_epoch_; }
@@ -256,13 +257,19 @@ inline WallTime operator+(const Interval& i, const WallTime& t) {
 
 class TimeZone {
  public:
-  TimeZone(Interval offset) : offset_minutes_(offset.ToMinutes()) {}
+  // Creates a time zone with the given UTC offset.
+  constexpr explicit TimeZone(Interval offset) : offset_minutes_(offset.inMinutes()) {}
 
-  Interval offset() const { return Minutes(offset_minutes_); }
+  // Returns the UTC offset of this timezone.
+  constexpr Interval offset() const { return Minutes(offset_minutes_); }
 
  private:
-  const uint16_t offset_minutes_;
+  uint16_t offset_minutes_;
 };
+
+namespace timezone {
+  constexpr TimeZone UTC = TimeZone(Micros(0));
+}
 
 enum DayOfWeek {
   SUNDAY = 0,
@@ -278,32 +285,55 @@ enum DayOfWeek {
 // a specific timezone. Does not account for leap seconds.
 class DateTime {
  public:
+  DateTime() : DateTime(WallTime(), timezone::UTC) {}
+
   DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz);
 
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
-           uint8_t minute, uint8_t second, TimeZone tz);
+           uint8_t minute, uint8_t second, uint32_t micros, TimeZone tz);
 
   DateTime(WallTime wallTime, TimeZone tz);
 
-  WallTime walltime() const { return walltime_; }
-  TimeZone timezone() const { return tz_; }
+  WallTime wallTime() const { return walltime_; }
+
+  TimeZone timeZone() const { return tz_; }
+
+  int16_t year() const { return year_; }
+
+  // [1..12]
+  uint8_t month() const { return month_; }
+
+  // [1..max_day]
   uint8_t day() const { return day_; }
+
+  // [0..23]
   uint8_t hour() const { return hour_; }
+
+  // [0..59]
   uint8_t minute() const { return minute_; }
+
+  // [0..59]
   uint8_t second() const { return second_; }
-  uint8_t micros() const { return micros_; }
+
+  // [0..999999]
+  uint32_t micros() const { return micros_; }
+
   DayOfWeek dayOfWeek() const { return day_of_week_; }
+
+  // [1..366]
+  uint16_t dayOfYear() const { return day_of_year_; }
 
  private:
   WallTime walltime_;
   TimeZone tz_;
-  uint16_t year_;
+  int16_t year_;
   uint8_t month_;
   uint8_t day_;
   uint8_t hour_;
   uint8_t minute_;
   uint8_t second_;
   DayOfWeek day_of_week_;
+  uint16_t day_of_year_;
   uint32_t micros_;
 };
 
