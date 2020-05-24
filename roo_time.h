@@ -17,19 +17,19 @@ class Interval {
 
   static const Interval Max() { return Interval(0x7FFFFFFFFFFFFFFF); }
 
-  int64_t ToMicros() const { return micros_; }
-  int64_t ToMillis() const { return micros_ / 1000LL; }
-  int64_t ToSeconds() const { return micros_ / 1000000LL; }
-  int64_t ToMinutes() const { return micros_ / 60000000LL; }
-  int64_t ToHours() const { return micros_ / 3600000000LL; }
+  int64_t inMicros() const { return micros_; }
+  int64_t inMillis() const { return micros_ / 1000LL; }
+  int64_t inSeconds() const { return micros_ / 1000000LL; }
+  int64_t inMinutes() const { return micros_ / 60000000LL; }
+  int64_t inHours() const { return micros_ / 3600000000LL; }
 
   Interval& operator+=(const Interval& other) {
-    micros_ += other.ToMicros();
+    micros_ += other.inMicros();
     return *this;
   }
 
   Interval& operator-=(const Interval& other) {
-    micros_ -= other.ToMicros();
+    micros_ -= other.inMicros();
     return *this;
   }
 
@@ -62,35 +62,35 @@ inline Interval Hours(int64_t hours) {
 }
 
 inline bool operator==(const Interval& a, const Interval& b) {
-  return a.ToMicros() == b.ToMicros();
+  return a.inMicros() == b.inMicros();
 }
 
 inline bool operator!=(const Interval& a, const Interval& b) {
-  return a.ToMicros() != b.ToMicros();
+  return a.inMicros() != b.inMicros();
 }
 
 inline bool operator<(const Interval& a, const Interval& b) {
-  return a.ToMicros() < b.ToMicros();
+  return a.inMicros() < b.inMicros();
 }
 
 inline bool operator>(const Interval& a, const Interval& b) {
-  return a.ToMicros() > b.ToMicros();
+  return a.inMicros() > b.inMicros();
 }
 
 inline bool operator<=(const Interval& a, const Interval& b) {
-  return a.ToMicros() <= b.ToMicros();
+  return a.inMicros() <= b.inMicros();
 }
 
 inline bool operator>=(const Interval& a, const Interval& b) {
-  return a.ToMicros() >= b.ToMicros();
+  return a.inMicros() >= b.inMicros();
 }
 
 inline Interval operator+(const Interval& a, const Interval& b) {
-  return Micros(a.ToMicros() + b.ToMicros());
+  return Micros(a.inMicros() + b.inMicros());
 }
 
 inline Interval operator-(const Interval& a, const Interval& b) {
-  return Micros(a.ToMicros() - b.ToMicros());
+  return Micros(a.inMicros() - b.inMicros());
 }
 
 // Represents an 'instant in time', relatively to the start time of the
@@ -117,23 +117,23 @@ class Uptime {
     return *this;
   }
 
-  int64_t ToMicros() const { return micros_; }
-  int64_t ToMillis() const { return micros_ / 1000LL; }
-  int64_t ToSeconds() const { return micros_ / 1000000LL; }
-  int64_t ToMinutes() const { return micros_ / 60000000LL; }
-  int64_t ToHours() const { return micros_ / 3600000000LL; }
+  int64_t inMicros() const { return micros_; }
+  int64_t inMillis() const { return micros_ / 1000LL; }
+  int64_t inSeconds() const { return micros_ / 1000000LL; }
+  int64_t inMinutes() const { return micros_ / 60000000LL; }
+  int64_t inHours() const { return micros_ / 3600000000LL; }
 
   // Interval HowLongAgo() const {
   //   return Interval(Now().ToMicros() - this->ToMicros);
   // }
 
   Uptime& operator+=(const Interval& i) {
-    micros_ += i.ToMicros();
+    micros_ += i.inMicros();
     return *this;
   }
 
   Uptime& operator-=(const Interval& i) {
-    micros_ -= i.ToMicros();
+    micros_ -= i.inMicros();
     return *this;
   }
 
@@ -148,43 +148,43 @@ class Uptime {
 };
 
 inline bool operator==(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() == b.ToMicros();
+  return a.inMicros() == b.inMicros();
 }
 
 inline bool operator!=(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() != b.ToMicros();
+  return a.inMicros() != b.inMicros();
 }
 
 inline bool operator<(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() < b.ToMicros();
+  return a.inMicros() < b.inMicros();
 }
 
 inline bool operator>(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() > b.ToMicros();
+  return a.inMicros() > b.inMicros();
 }
 
 inline bool operator<=(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() <= b.ToMicros();
+  return a.inMicros() <= b.inMicros();
 }
 
 inline bool operator>=(const Uptime& a, const Uptime& b) {
-  return a.ToMicros() >= b.ToMicros();
+  return a.inMicros() >= b.inMicros();
 }
 
 inline Interval operator-(const Uptime& a, const Uptime& b) {
-  return Micros(a.ToMicros() - b.ToMicros());
+  return Micros(a.inMicros() - b.inMicros());
 }
 
 inline Uptime operator+(const Uptime& u, const Interval& i) {
-  return Uptime(u.ToMicros() + i.ToMicros());
+  return Uptime(u.inMicros() + i.inMicros());
 }
 
 inline Uptime operator-(const Uptime& u, const Interval& i) {
-  return Uptime(u.ToMicros() - i.ToMicros());
+  return Uptime(u.inMicros() - i.inMicros());
 }
 
 inline Uptime operator+(const Interval& i, const Uptime& u) {
-  return Uptime(u.ToMicros() + i.ToMicros());
+  return Uptime(u.inMicros() + i.inMicros());
 }
 
 }  // namespace roo_time

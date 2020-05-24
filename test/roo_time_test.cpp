@@ -6,31 +6,31 @@ namespace roo_time {
 
 TEST(Interval, NarrowingConversions) {
   Interval a = Micros(12345678901);
-  EXPECT_EQ(12345678, a.ToMillis());
-  EXPECT_EQ(12345, a.ToSeconds());
-  EXPECT_EQ(205, a.ToMinutes());
-  EXPECT_EQ(3, a.ToHours());
+  EXPECT_EQ(12345678, a.inMillis());
+  EXPECT_EQ(12345, a.inSeconds());
+  EXPECT_EQ(205, a.inMinutes());
+  EXPECT_EQ(3, a.inHours());
 }
 
 TEST(Interval, ExpandingConversions) {
   Interval a = Hours(3);
-  EXPECT_EQ(180, a.ToMinutes());
-  EXPECT_EQ(180 * 60, a.ToSeconds());
-  EXPECT_EQ(180 * 60 * 1000, a.ToMillis());
-  EXPECT_EQ(180L * 60 * 1000000, a.ToMicros());
+  EXPECT_EQ(180, a.inMinutes());
+  EXPECT_EQ(180 * 60, a.inSeconds());
+  EXPECT_EQ(180 * 60 * 1000, a.inMillis());
+  EXPECT_EQ(180L * 60 * 1000000, a.inMicros());
 }
 
 TEST(Interval, Arithmetics) {
   Interval a = Micros(150);
   Interval b = Micros(27);
-  EXPECT_EQ(177, (a + b).ToMicros());
-  EXPECT_EQ(123, (a - b).ToMicros());
+  EXPECT_EQ(177, (a + b).inMicros());
+  EXPECT_EQ(123, (a - b).inMicros());
   a += b;
-  EXPECT_EQ(177, a.ToMicros());
+  EXPECT_EQ(177, a.inMicros());
   a += b;
-  EXPECT_EQ(204, a.ToMicros());
+  EXPECT_EQ(204, a.inMicros());
   a -= b;
-  EXPECT_EQ(177, a.ToMicros());
+  EXPECT_EQ(177, a.inMicros());
 }
 
 TEST(Interval, Comparison) {
@@ -50,34 +50,34 @@ TEST(Interval, Comparison) {
 
 TEST(Uptime, NarrowingConversions) {
   Uptime a = Uptime::Start() + Micros(12345678901);
-  EXPECT_EQ(12345678901, a.ToMicros());
-  EXPECT_EQ(12345678, a.ToMillis());
-  EXPECT_EQ(12345, a.ToSeconds());
-  EXPECT_EQ(205, a.ToMinutes());
-  EXPECT_EQ(3, a.ToHours());
+  EXPECT_EQ(12345678901, a.inMicros());
+  EXPECT_EQ(12345678, a.inMillis());
+  EXPECT_EQ(12345, a.inSeconds());
+  EXPECT_EQ(205, a.inMinutes());
+  EXPECT_EQ(3, a.inHours());
 }
 
 TEST(Uptime, ExpandingConversions) {
   Uptime a = Uptime::Start() + Hours(3);
-  EXPECT_EQ(3, a.ToHours());
-  EXPECT_EQ(180, a.ToMinutes());
-  EXPECT_EQ(180 * 60, a.ToSeconds());
-  EXPECT_EQ(180 * 60 * 1000, a.ToMillis());
-  EXPECT_EQ(180L * 60 * 1000000, a.ToMicros());
+  EXPECT_EQ(3, a.inHours());
+  EXPECT_EQ(180, a.inMinutes());
+  EXPECT_EQ(180 * 60, a.inSeconds());
+  EXPECT_EQ(180 * 60 * 1000, a.inMillis());
+  EXPECT_EQ(180L * 60 * 1000000, a.inMicros());
 }
 
 TEST(Uptime, Arithmetics) {
   Uptime a = Uptime::Start() + Micros(150);
   Uptime b = Uptime::Start() + Micros(27);
-  EXPECT_EQ(123, (a - b).ToMicros());
+  EXPECT_EQ(123, (a - b).inMicros());
   Interval delta = Micros(13);
-  EXPECT_EQ(136, (a - b + delta).ToMicros());
-  EXPECT_EQ(136, (a + delta - b).ToMicros());
+  EXPECT_EQ(136, (a - b + delta).inMicros());
+  EXPECT_EQ(136, (a + delta - b).inMicros());
 
   a += delta;
-  EXPECT_EQ(163, a.ToMicros());
+  EXPECT_EQ(163, a.inMicros());
   a -= delta;
-  EXPECT_EQ(150, a.ToMicros());
+  EXPECT_EQ(150, a.inMicros());
 }
 
 TEST(Uptime, Comparison) {
