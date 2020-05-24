@@ -26,5 +26,6 @@ cc_test(
     deps = [
         "//lib/roo_time",
         "@gtest//:gtest_main",
+        "//testing/transducers/time:default_system_clock",
     ],
 )
