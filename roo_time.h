@@ -95,7 +95,7 @@ inline Interval operator-(const Interval& a, const Interval& b) {
 
 // Represents an 'instant in time', relatively to the start time of the
 // process. Internally represented with microsecond precition and 64-bit range.
-//  POD; pass it by value.
+// May not count time while the board is in sleep mode. POD; pass it by value.
 class Uptime {
  public:
   static const Uptime Now();
@@ -186,5 +186,125 @@ inline Uptime operator-(const Uptime& u, const Interval& i) {
 inline Uptime operator+(const Interval& i, const Uptime& u) {
   return Uptime(u.inMicros() + i.inMicros());
 }
+
+// Represents an absolute 'instant in time'. Internally represented with
+// microsecond precition and 64-bit range. Does not account for leap seconds.
+// POD; pass it by value.
+class WallTime {
+ public:
+  explicit WallTime(Interval since_epoch) : since_epoch_(since_epoch) {}
+
+  Interval sinceEpoch() const { return since_epoch_; }
+
+  WallTime& operator+=(const Interval& i) {
+    since_epoch_ += i;
+    return *this;
+  }
+
+  WallTime& operator-=(const Interval& i) {
+    since_epoch_ -= i;
+    return *this;
+  }
+
+ private:
+  friend WallTime operator+(const WallTime&, const Interval&);
+  friend WallTime operator-(const WallTime&, const Interval&);
+  friend WallTime operator+(const Interval&, const WallTime&);
+
+  Interval since_epoch_;
+};
+
+inline bool operator==(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() == b.sinceEpoch();
+}
+
+inline bool operator!=(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() != b.sinceEpoch();
+}
+
+inline bool operator<(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() < b.sinceEpoch();
+}
+
+inline bool operator>(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() > b.sinceEpoch();
+}
+
+inline bool operator<=(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() <= b.sinceEpoch();
+}
+
+inline bool operator>=(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() >= b.sinceEpoch();
+}
+
+inline Interval operator-(const WallTime& a, const WallTime& b) {
+  return a.sinceEpoch() - b.sinceEpoch();
+}
+
+inline WallTime operator+(const WallTime& t, const Interval& i) {
+  return WallTime(t.sinceEpoch() + i);
+}
+
+inline WallTime operator-(const WallTime& t, const Interval& i) {
+  return WallTime(t.sinceEpoch() - i);
+}
+
+inline WallTime operator+(const Interval& i, const WallTime& t) {
+  return WallTime(t.sinceEpoch() + i);
+}
+
+class TimeZone {
+ public:
+  TimeZone(Interval offset) : offset_minutes_(offset.ToMinutes()) {}
+
+  Interval offset() const { return Minutes(offset_minutes_); }
+
+ private:
+  const uint16_t offset_minutes_;
+};
+
+enum DayOfWeek {
+  SUNDAY = 0,
+  MONDAY,
+  TUESDAY,
+  WEDNESDAY,
+  THURSDAY,
+  FRIDAY,
+  SATURDAY
+};
+
+// Represents an absolute 'instant in time', represented as a date and time in
+// a specific timezone. Does not account for leap seconds.
+class DateTime {
+ public:
+  DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz);
+
+  DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
+           uint8_t minute, uint8_t second, TimeZone tz);
+
+  DateTime(WallTime wallTime, TimeZone tz);
+
+  WallTime walltime() const { return walltime_; }
+  TimeZone timezone() const { return tz_; }
+  uint8_t day() const { return day_; }
+  uint8_t hour() const { return hour_; }
+  uint8_t minute() const { return minute_; }
+  uint8_t second() const { return second_; }
+  uint8_t micros() const { return micros_; }
+  DayOfWeek dayOfWeek() const { return day_of_week_; }
+
+ private:
+  WallTime walltime_;
+  TimeZone tz_;
+  uint16_t year_;
+  uint8_t month_;
+  uint8_t day_;
+  uint8_t hour_;
+  uint8_t minute_;
+  uint8_t second_;
+  DayOfWeek day_of_week_;
+  uint32_t micros_;
+};
 
 }  // namespace roo_time
