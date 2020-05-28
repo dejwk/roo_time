@@ -255,6 +255,13 @@ inline WallTime operator+(const Interval& i, const WallTime& t) {
   return WallTime(t.sinceEpoch() + i);
 }
 
+// Abstract interface for a provider of current wall time.
+class WallTimeClock {
+ public:
+  virtual ~WallTimeClock() {}
+  virtual WallTime now() const = 0;
+};
+
 class TimeZone {
  public:
   // Creates a time zone with the given UTC offset.
