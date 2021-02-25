@@ -12,7 +12,7 @@ cc_library(
         ".",
     ],
     deps = [
-        "//testing:arduino",
+        "//roo_testing:arduino",
     ],
 )
 
@@ -26,6 +26,6 @@ cc_test(
     deps = [
         "//lib/roo_time",
         "@gtest//:gtest_main",
-        "//testing/transducers/time:default_system_clock",
+        "//roo_testing/transducers/time:default_system_clock",
     ],
 )
