@@ -188,7 +188,7 @@ inline Uptime operator+(const Interval& i, const Uptime& u) {
 }
 
 // Represents an absolute 'instant in time'. Internally represented with
-// microsecond precition and 64-bit range. Does not account for leap seconds.
+// microsecond precision and 64-bit range. Does not account for leap seconds.
 // POD; pass it by value.
 class WallTime {
  public:
