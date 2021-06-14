@@ -47,7 +47,9 @@ class Interval {
 
 inline constexpr Interval Micros(int64_t micros) { return Interval(micros); }
 
-inline constexpr Interval Millis(int64_t millis) { return Interval(millis * 1000); }
+inline constexpr Interval Millis(int64_t millis) {
+  return Interval(millis * 1000);
+}
 
 inline constexpr Interval Seconds(int64_t seconds) {
   return Interval(seconds * 1000 * 1000);
@@ -265,17 +267,18 @@ class WallTimeClock {
 class TimeZone {
  public:
   // Creates a time zone with the given UTC offset.
-  constexpr explicit TimeZone(Interval offset) : offset_minutes_(offset.inMinutes()) {}
+  constexpr explicit TimeZone(Interval offset)
+      : offset_minutes_(offset.inMinutes()) {}
 
   // Returns the UTC offset of this timezone.
   constexpr Interval offset() const { return Minutes(offset_minutes_); }
 
  private:
-  uint16_t offset_minutes_;
+  int16_t offset_minutes_;
 };
 
 namespace timezone {
-  constexpr TimeZone UTC = TimeZone(Micros(0));
+constexpr TimeZone UTC = TimeZone(Micros(0));
 }
 
 enum DayOfWeek {
@@ -292,19 +295,32 @@ enum DayOfWeek {
 // a specific timezone. Does not account for leap seconds.
 class DateTime {
  public:
+  // Constructs a new DateTime, representing 'now' in UTC.
   DateTime() : DateTime(WallTime(), timezone::UTC) {}
 
+  // Constructs a new DateTime, representing the midnight of the sepcified
+  // day, in the specified time zone.
+  //
+  // year: 4-digit.
+  // month: 1..12
+  // day: 1..max_day
+  //
   DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz);
 
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
            uint8_t minute, uint8_t second, uint32_t micros, TimeZone tz);
 
+  // Constructs a new DateTime, representing the specified WallTime
+  // in the specified time zone.
   DateTime(WallTime wallTime, TimeZone tz);
 
+  // Returns WallTime corresponding to this DateTime.
   WallTime wallTime() const { return walltime_; }
 
+  // Returns the timezone of this DateTime.
   TimeZone timeZone() const { return tz_; }
 
+  // 4-digit.
   int16_t year() const { return year_; }
 
   // [1..12]
