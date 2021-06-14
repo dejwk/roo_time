@@ -1,12 +1,17 @@
 #include "roo_time.h"
 
+#if defined(ESP32) || defined(ESP8266)
 #include "esp_attr.h"
 
 extern "C" {
 int64_t esp_timer_get_time();
 }
 
+#endif
+
 namespace roo_time {
+
+#if defined(ESP32) || defined(ESP8266)
 
 static int64_t last_reading = 0;
 
@@ -23,6 +28,8 @@ const Uptime IRAM_ATTR Uptime::Now() {
   last_reading = now;
   return Uptime(now);
 }
+
+#endif
 
 namespace {
 
