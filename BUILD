@@ -11,6 +11,7 @@ cc_library(
     includes = [
         ".",
     ],
+    defines = [ "ROO_EMULATOR" ],
     deps = [
         "//roo_testing:arduino",
     ],
