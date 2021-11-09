@@ -133,7 +133,7 @@ TEST(DateTime, FromDateUTC) {
   EXPECT_EQ(24, d.day());
   EXPECT_EQ(SUNDAY, d.dayOfWeek());
   EXPECT_EQ(145, d.dayOfYear());
-  EXPECT_EQ(1590278400000000, d.walltime().sinceEpoch().inMicros());
+  EXPECT_EQ(1590278400000000, d.wallTime().sinceEpoch().inMicros());
 }
 
 TEST(DateTime, FromDateCest) {
@@ -143,7 +143,7 @@ TEST(DateTime, FromDateCest) {
   EXPECT_EQ(24, d.day());
   EXPECT_EQ(SUNDAY, d.dayOfWeek());
   EXPECT_EQ(145, d.dayOfYear());
-  EXPECT_EQ(1590271200000000, d.walltime().sinceEpoch().inMicros());
+  EXPECT_EQ(1590271200000000, d.wallTime().sinceEpoch().inMicros());
 }
 
 TEST(DateTime, FromDateTimeCest) {
@@ -153,7 +153,7 @@ TEST(DateTime, FromDateTimeCest) {
   EXPECT_EQ(25, d.day());
   EXPECT_EQ(MONDAY, d.dayOfWeek());
   EXPECT_EQ(146, d.dayOfYear());
-  EXPECT_EQ(1590443851000001, d.walltime().sinceEpoch().inMicros());
+  EXPECT_EQ(1590443851000001, d.wallTime().sinceEpoch().inMicros());
 }
 
 TEST(DateTime, FromUnixCest) {
@@ -163,7 +163,7 @@ TEST(DateTime, FromUnixCest) {
   EXPECT_EQ(25, d.day());
   EXPECT_EQ(MONDAY, d.dayOfWeek());
   EXPECT_EQ(146, d.dayOfYear());
-  EXPECT_EQ(1590443851000001, d.walltime().sinceEpoch().inMicros());
+  EXPECT_EQ(1590443851000001, d.wallTime().sinceEpoch().inMicros());
 }
 
 }  // namespace roo_time
