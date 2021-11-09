@@ -25,8 +25,8 @@ jobs:
 
     - name: Test
       run: |
-        "cd testing; ${GITHUB_WORKSPACE}/bin/bazel" test //...
+        (cd testing; ${GITHUB_WORKSPACE}/bin/bazel test //...)
 
     - name: Build
       run: |
-        "cd testing; ${GITHUB_WORKSPACE}/bin/bazel" build //...
+        (cd testing; ${GITHUB_WORKSPACE}/bin/bazel build //...)
