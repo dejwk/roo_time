@@ -3,11 +3,12 @@ cc_library(
     visibility = ["//visibility:public"],
     srcs = glob(
         [
-            "**/*.cpp",
-            "**/*.h",
+            "src/**/*.cpp",
+            "src/**/*.h",
         ],
-        exclude = ["test/**"],
     ),
+    hdrs = ["src/roo_time.h"],
+    includes = ["src"],
 )
 
 cc_test(
@@ -15,6 +16,7 @@ cc_test(
     srcs = [
         "test/roo_time_test.cpp",
     ],
+    includes = ["src"],
     copts = ["-Iexternal/gtest/include"],
     linkstatic = 1,
     deps = [
