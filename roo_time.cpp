@@ -15,6 +15,14 @@ inline  static int64_t __uptime() { return esp_timer_get_time(); }
 
 inline static int64_t __uptime() { return micros(); }
 
+#elif defined(__linux__)
+#include <chrono>
+
+inline static int64_t __uptime() {
+  auto now = std::chrono::high_resolution_clock::now();
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+      now.time_since_epoch()).count();
+}
 #endif
 
 #ifndef IRAM_ATTR
