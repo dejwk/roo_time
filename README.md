@@ -10,6 +10,12 @@ I wrote this library because I couldn't find another that supported this full ra
 various RTC devices. In particular, with DS3231, I wanted to keep the time as UTC, and deal with daylight savings conversions
 outside of that. But timezone support is not commonly found in Arduino time libraries.
 
+## Compatibility
+
+This library is extensively tested on ESP32 with the Arduino framework. That said, it should also work without changes on other Espressif chips, and with the Espressif framework instead of Arduino. (This library does not have any explicit dependency on Arduino).
+
+The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now(). It should work out-of-the-box on arbitrary Arduino platforms, although it wasn't explicitly tested beyond ESP32.
+
 ## Measuring elapsed time
 
 Example usage:
@@ -169,9 +175,3 @@ date conversion function, it will have zero effect on your binary size. And, bec
 of aggressive optimization mentioned above, the cost of using basic functionality
 of WallTime and Uptime is essentially zero in comparison to the equivalent code using
 integer types directly.
-
-## Compatibility
-
-This library is extensively tested on ESP32 with the Arduino framework. That said, it should also work without changes on other Espressif chips, and with the Espressif framework instead of Arduino. (This library does not have any explicit dependency on Arduino).
-
-The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now(). It should work out-of-the-box on arbitrary Arduino platforms, although it wasn't explicitly tested beyond ESP32.
