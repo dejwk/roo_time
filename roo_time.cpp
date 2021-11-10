@@ -1,6 +1,10 @@
 #include "roo_time.h"
 
-#if defined(ESP32) || defined(ESP8266)
+#if defined(__CUSTOM_UPTIME)
+
+inline static int64_t __uptime() { return __CUSTOM_UPTIME(); }
+
+#elif defined(ESP32) || defined(ESP8266)
 #include "esp_attr.h"
 
 extern "C" {
