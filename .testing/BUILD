@@ -1,14 +1,30 @@
 cc_library(
     name = "roo_time",
+    includes = ["src"],
     visibility = ["//visibility:public"],
-    srcs = glob(
-        [
-            "src/**/*.cpp",
-            "src/**/*.h",
-        ],
-    ),
+    deps = [
+        ":core",
+        ":default_uptime_now",
+    ],
+)
+
+# Use instead of :roo_time when want to provide custom implementation of
+# Uptime::Now().
+cc_library(
+    name = "core",
+    srcs = ["src/roo_time.cpp"],
     hdrs = ["src/roo_time.h"],
     includes = ["src"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "default_uptime_now",
+    srcs = ["src/uptime_now.cpp"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":core",
+    ],
 )
 
 cc_test(
@@ -16,8 +32,8 @@ cc_test(
     srcs = [
         "test/roo_time_test.cpp",
     ],
-    includes = ["src"],
     copts = ["-Iexternal/gtest/include"],
+    includes = ["src"],
     linkstatic = 1,
     deps = [
         ":roo_time",
