@@ -25,7 +25,7 @@ Example usage:
 
 using namespace roo_time;
 
-void main() {
+void loop() {
   Uptime now = Uptime::Now();  // Carries microseconds since Epoch.
   foo(now.inMillis());         // Conveniently convert to various time units, as needed.
   now += Hours(2);             // Basic arithmetics and convenience construction.
@@ -38,6 +38,7 @@ void main() {
   if (elapsed > Minutes(2)) {  // This is now OK.
     // ...
   }
+  // ...
 }
 ```
 
@@ -79,10 +80,11 @@ void setup() {
   clock.begin();
 }
 
-void main() {
+void loop() {
   WallTime now = clock.now();
   WallTime tomorrow = now + Hours(24);
   int64_t seconds_since_epoch = now.sinceEpoch().toSeconds();
+  // ...
 }
 ```
 
