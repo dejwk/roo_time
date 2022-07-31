@@ -95,6 +95,14 @@ inline Interval operator-(const Interval& a, const Interval& b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
+inline Interval operator*(const Interval& a, int b) {
+  return Micros(a.inMicros() * b);
+}
+
+inline Interval operator*(int a, const Interval& b) {
+  return Micros(a * b.inMicros());
+}
+
 // Represents an 'instant in time', relatively to the start time of the
 // process. Internally represented with microsecond precition and 64-bit range.
 // May not count time while the board is in sleep mode. POD; pass it by value.
