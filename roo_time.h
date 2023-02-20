@@ -9,8 +9,8 @@
 namespace roo_time {
 
 // Represents an 'amount of time', e.g. e.g. 5s, 10 min, etc.
-// Internally represented with microsecond precition and 64-bit range.
-// POD; pass it by value.
+// Internally represented with microsecond precision and 64-bit range.
+// Should be passed by value.
 class Interval {
  public:
   constexpr Interval() : micros_(0) {}
