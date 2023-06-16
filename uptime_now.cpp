@@ -7,7 +7,7 @@ extern "C" {
 int64_t esp_timer_get_time();
 }
 
-inline static int64_t __uptime() { return esp_timer_get_time(); }
+inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
 
 #elif defined(ARDUINO) || defined(ROO_TESTING)
 
