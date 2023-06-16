@@ -17,6 +17,8 @@ cc_library(
     srcs = [
         "roo_time.cpp",
         "roo_time.h",
+        "roo_time/ds3231.h",
+        "roo_time/system.h",
     ],
     defines = ["ROO_EMULATOR"],
     includes = [
