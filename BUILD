@@ -3,7 +3,7 @@
 cc_library(
     name = "roo_time",
     includes = [
-        ".",
+        "src",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -15,14 +15,14 @@ cc_library(
 cc_library(
     name = "core",
     srcs = [
-        "roo_time.cpp",
-        "roo_time.h",
-        "roo_time/ds3231.h",
-        "roo_time/system.h",
+        "src/roo_time.cpp",
+        "src/roo_time.h",
+        "src/roo_time/ds3231.h",
+        "src/roo_time/system.h",
     ],
     defines = ["ROO_EMULATOR"],
     includes = [
-        ".",
+        "src",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -33,7 +33,7 @@ cc_library(
 cc_library(
     name = "default_uptime_now",
     srcs = [
-        "uptime_now.cpp",
+        "src/uptime_now.cpp",
     ],
     visibility = ["//visibility:public"],
     deps = [
