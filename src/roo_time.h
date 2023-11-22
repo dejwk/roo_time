@@ -1,6 +1,10 @@
 #pragma once
 
 #include <inttypes.h>
+#if defined(ESP32) || defined(ESP8266) || defined(LINUX)
+#define CTIME_HDR_DEFINED
+#include <ctime>
+#endif
 
 // Convenience classes for handling delays, measure elapsed time, etc.,
 // providing safety against common errors like confusing time units
@@ -268,9 +272,16 @@ inline WallTime operator+(const Interval& i, const WallTime& t) {
 // Abstract interface for a provider of current wall time.
 class WallTimeClock {
  public:
-  virtual ~WallTimeClock() {}
+  virtual ~WallTimeClock() = default;
   virtual WallTime now() const = 0;
 };
+
+#ifdef CTIME_HDR_DEFINED
+class SystemClock : public WallTimeClock {
+ public:
+  WallTime now() const override { return WallTime(Seconds(time(nullptr))); }
+};
+#endif
 
 class TimeZone {
  public:
@@ -353,6 +364,25 @@ class DateTime {
 
   // [1..366]
   uint16_t dayOfYear() const { return day_of_year_; }
+
+#ifdef CTIME_HDR_DEFINED
+  DateTime(struct tm t, TimeZone tz = timezone::UTC)
+      : DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
+                 t.tm_sec, 0, tz) {}
+
+  struct tm tmStruct() const {
+    return tm{.tm_sec = second_,
+              .tm_min = minute_,
+              .tm_hour = hour_,
+              .tm_mday = day_,
+              .tm_mon = month_ - 1,
+              .tm_year = year_ - 1900,
+              .tm_wday = day_of_week_,
+              .tm_yday = day_of_year_,
+              .tm_isdst = -1};
+  }
+
+#endif
 
  private:
   WallTime walltime_;
