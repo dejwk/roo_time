@@ -6,15 +6,14 @@ units, or confusing 'timestamps' with 'intervals'.
 When used with Espressif chips, uses microsecond precision, and stores the time as int64_t
 (in other words, it will not overflow on you).
 
-I wrote this library because I couldn't find another that supported this full range of features, while working seamlessly with
-various RTC devices. In particular, with DS3231, I wanted to keep the time as UTC, and deal with daylight savings conversions
-outside of that. But timezone support is not commonly found in Arduino time libraries.
+The library is designed to work seamlessly with various RTC device drivers. For example, if you have a DS3231 real-time clock, you
+can use this library to keep the raw, UTC time in DS3231, and deal with time zones and daylight savings conversions on top of that.
 
 ## Compatibility
 
 This library is extensively tested on ESP32 with the Arduino framework. That said, it should also work without changes on other Espressif chips, and with the Espressif framework instead of Arduino. (This library does not have any explicit dependency on Arduino).
 
-The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now(). It should work out-of-the-box on arbitrary Arduino platforms, although it wasn't explicitly tested beyond ESP32.
+The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now(). It should work out-of-the-box on other Arduino platforms, although it wasn't explicitly tested beyond ESP32.
 
 ## Measuring elapsed time
 
@@ -26,7 +25,7 @@ Example usage:
 using namespace roo_time;
 
 void loop() {
-  Uptime now = Uptime::Now();  // Carries microseconds since Epoch.
+  Uptime now = Uptime::Now();  // Carries microseconds since program start.
   foo(now.inMillis());         // Conveniently convert to various time units, as needed.
   now += Hours(2);             // Basic arithmetics and convenience construction.
   if (now > Hours(2))          // Compile error: don't conflate time instant with time interval.
@@ -44,37 +43,41 @@ void loop() {
 
 ## Measuring wall time
 
-The library works well with device-specific libraries, via the base abstraction of a 'WallTimeClock'. For example, when use with DS3231, you need to write the following adapter:
+The library works well with device-specific libraries, via the base abstraction of a 'WallTimeClock'. On ESP chips, you can use
+'SystemClock' to read time from NTP servers via WiFi. For DS3231, you can use the 'Ds3231Clock' defined in `roo_time/ds3231.h`.
+If you have another time source, you can use it by implementing a simple adapter:
 
 ```cpp
-#include "DS3231.h"
+#include "my_rtc_time_lib.h"
 #include "roo_time.h"
 
 using namespace roo_time;
 
-class Clock : public WallTimeClock {
+class MyClock : public WallTimeClock {
  public:
-  void begin() { rtc_.begin(); }
-  
-  WallTime now() const override {
-    auto ds = rtc_.getDateTime();
-    // Time zone that you use for storing time in your DS3231. I like UTC,
-    // but you may also keep it in the local time.
-    TimeZone tz = timezone::UTC;
-    DateTime dt(ds.year, ds.month, ds.day, ds.hour, ds.minute, ds.second, 0, tz);
-    return dt.wallTime();
+  // optional; initializes the driver.
+  void begin() {
+    rtc_.begin();
   }
   
+  WallTime now() const override {
+    // Read time, e.g. as milliseconds since Epoch.
+    return WallTime(Millis(rtc_.millisSinceEpoch()));
+  }
+
  private:
-  DS3231 rtc_;
+  MyRtcDevice rtc_;
 };
 
 ```
 
-Once you have such an adapter, you can use it like this:
+If your device returns date/time components (year, month, day, etc.), you can convert them to 'WallTime' using the
+conversion functions described below. (Also, refer to the 'Ds3231Clock' for a concrete illustration).
+
+Once you have an implementation of the 'WallTimeClock', you can use it like this:
 
 ```cpp
-Clock clock;
+MyClock clock;  // Or, SystemClock, or Ds3231Clock, etc.
 
 void setup() {
   clock.begin();
@@ -137,15 +140,15 @@ Interval utcOffset(WallTime t) {
 
 class DSTWatch {
  public:
-  DSTWatch(Clock* clock) : clock_(clock) {}
+  DSTWatch(WallTimeClock& clock) : clock_(clock) {}
  
   DateTime nowLocal() {
-    WallTime t = clock_->now();
+    WallTime t = clock_.now();
     return DateTime(t, TimeZone(utcOffset(t)));
   }
   
  private:
-  Clock* clock_;
+  WallTimeClock& clock_;
 };
 ```
 
