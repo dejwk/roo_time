@@ -1,8 +1,10 @@
 #pragma once
 
 #include <inttypes.h>
-#if defined(ESP32) || defined(ESP8266) || defined(LINUX)
+#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
 #define CTIME_HDR_DEFINED
+#include <sys/time.h>
+
 #include <ctime>
 #endif
 
@@ -279,12 +281,18 @@ class WallTimeClock {
 #ifdef CTIME_HDR_DEFINED
 class SystemClock : public WallTimeClock {
  public:
-  WallTime now() const override { return WallTime(Seconds(time(nullptr))); }
+  WallTime now() const override {
+    struct timeval tv;
+    if (gettimeofday(&tv, nullptr)) return WallTime();
+    return WallTime(Micros(tv.tv_sec * 1000000LL + tv.tv_usec));
+  }
 };
 #endif
 
 class TimeZone {
  public:
+  TimeZone() : offset_minutes_(0) {}
+
   // Creates a time zone with the given UTC offset.
   constexpr explicit TimeZone(Interval offset)
       : offset_minutes_(offset.inMinutes()) {}
@@ -381,7 +389,6 @@ class DateTime {
               .tm_yday = day_of_year_,
               .tm_isdst = -1};
   }
-
 #endif
 
  private:
