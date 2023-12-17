@@ -29,6 +29,11 @@ class Interval {
   constexpr int64_t inMinutes() const { return micros_ / 60000000LL; }
   constexpr int64_t inHours() const { return micros_ / 3600000000LL; }
 
+  constexpr float inMillisFloat() const { return micros_ / 1000.0; }
+  constexpr float inSecondsFloat() const { return micros_ / 1000000.0; }
+  constexpr float inMinutesFloat() const { return micros_ / 60000000.0; }
+  constexpr float inHoursFloat() const { return micros_ / 3600000000.0; }
+
   Interval& operator+=(const Interval& other) {
     micros_ += other.inMicros();
     return *this;
@@ -46,6 +51,16 @@ class Interval {
   friend constexpr Interval Minutes(int64_t minutes);
   friend constexpr Interval Hours(int64_t hours);
 
+  friend constexpr Interval Millis(float millis);
+  friend constexpr Interval Seconds(float seconds);
+  friend constexpr Interval Minutes(float minutes);
+  friend constexpr Interval Hours(float hours);
+
+  friend constexpr Interval Millis(double millis);
+  friend constexpr Interval Seconds(double seconds);
+  friend constexpr Interval Minutes(double minutes);
+  friend constexpr Interval Hours(double hours);
+
   constexpr Interval(int64_t micros) : micros_(micros) {}
 
   int64_t micros_;
@@ -57,16 +72,108 @@ inline constexpr Interval Millis(int64_t millis) {
   return Interval(millis * 1000);
 }
 
+inline constexpr Interval Millis(int32_t millis) {
+  return Millis((int64_t)millis);
+}
+
+inline constexpr Interval Millis(uint32_t millis) {
+  return Millis((int64_t)millis);
+}
+
+inline constexpr Interval Millis(int16_t millis) {
+  return Millis((int64_t)millis);
+}
+
+inline constexpr Interval Millis(uint16_t millis) {
+  return Millis((int64_t)millis);
+}
+
+inline constexpr Interval Millis(float millis) {
+  return Interval((int64_t)(millis * 1000));
+}
+
+inline constexpr Interval Millis(double millis) {
+  return Interval((int64_t)(millis * 1000));
+}
+
 inline constexpr Interval Seconds(int64_t seconds) {
   return Interval(seconds * 1000 * 1000);
+}
+
+inline constexpr Interval Seconds(int32_t seconds) {
+  return Seconds((int64_t)seconds);
+}
+
+inline constexpr Interval Seconds(uint32_t seconds) {
+  return Seconds((int64_t)seconds);
+}
+
+inline constexpr Interval Seconds(int16_t seconds) {
+  return Seconds((int64_t)seconds);
+}
+
+inline constexpr Interval Seconds(uint16_t seconds) {
+  return Seconds((int64_t)seconds);
+}
+
+inline constexpr Interval Seconds(float seconds) {
+  return Interval((int64_t)(seconds * 1000 * 1000));
+}
+
+inline constexpr Interval Seconds(double seconds) {
+  return Interval((int64_t)(seconds * 1000 * 1000));
 }
 
 inline constexpr Interval Minutes(int64_t minutes) {
   return Interval(minutes * 1000 * 1000 * 60);
 }
 
+inline constexpr Interval Minutes(int32_t minutes) {
+  return Minutes((int64_t)minutes);
+}
+
+inline constexpr Interval Minutes(uint32_t minutes) {
+  return Minutes((int64_t)minutes);
+}
+
+inline constexpr Interval Minutes(int16_t minutes) {
+  return Minutes((int64_t)minutes);
+}
+
+inline constexpr Interval Minutes(uint16_t minutes) {
+  return Minutes((int64_t)minutes);
+}
+
+inline constexpr Interval Minutes(float minutes) {
+  return Interval((int64_t)(minutes * 1000 * 1000 * 60));
+}
+
+inline constexpr Interval Minutes(double minutes) {
+  return Interval((int64_t)(minutes * 1000 * 1000 * 60));
+}
+
 inline constexpr Interval Hours(int64_t hours) {
   return Interval(hours * 1000 * 1000 * 60 * 60);
+}
+
+inline constexpr Interval Hours(int32_t hours) { return Hours((int64_t)hours); }
+
+inline constexpr Interval Hours(uint32_t hours) {
+  return Hours((int64_t)hours);
+}
+
+inline constexpr Interval Hours(int16_t hours) { return Hours((int64_t)hours); }
+
+inline constexpr Interval Hours(uint16_t hours) {
+  return Hours((int64_t)hours);
+}
+
+inline constexpr Interval Hours(float hours) {
+  return Interval((int64_t)(hours * 1000 * 1000 * 60 * 60));
+}
+
+inline constexpr Interval Hours(double hours) {
+  return Interval((int64_t)(hours * 1000 * 1000 * 60 * 60));
 }
 
 inline bool operator==(const Interval& a, const Interval& b) {
