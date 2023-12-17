@@ -12,7 +12,7 @@ const char* wifi_password = "<enter your password>";
 const char* ntpServer = "pool.ntp.org";
 
 // 2 hours behind UTC.
-const TimeZone kLocalTz(Hours(1));
+const TimeZone kLocalTz(Hours(2));
 
 SystemClock my_clock;
 
