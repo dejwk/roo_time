@@ -19,7 +19,7 @@ cc_library(
         "src/roo_time.h",
         "src/roo_time/ds3231.h",
     ],
-    defines = ["ROO_EMULATOR"],
+    defines = ["ROO_TESTING"],
     includes = [
         "src",
     ],
