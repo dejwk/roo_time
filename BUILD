@@ -19,18 +19,29 @@ cc_library(
         "src/roo_time.h",
         "src/roo_time/ds3231.h",
     ],
-    defines = ["ROO_TESTING"],
     includes = [
         "src",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//roo_testing:arduino",
     ],
 )
 
 cc_library(
     name = "default_uptime_now",
+    srcs = [
+        "src/uptime_now.cpp",
+    ],
+    defines = ["ROO_TESTING"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":core",
+        "//roo_testing:arduino",
+    ],
+)
+
+cc_library(
+    name = "linux_uptime_now",
     srcs = [
         "src/uptime_now.cpp",
     ],
