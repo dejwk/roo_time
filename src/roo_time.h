@@ -310,6 +310,13 @@ inline Uptime operator+(const Interval& i, const Uptime& u) {
   return Uptime(u.inMicros() + i.inMicros());
 }
 
+// Delays execution for the specified time interval. Does nothing if the
+// interval is negative.
+void Delay(Interval interval);
+
+// Delays execution until the specified instant.
+inline void DelayUntil(Uptime when) { Delay(when - Uptime::Now()); }
+
 // Represents an absolute 'instant in time'. Internally represented with
 // microsecond precision and 64-bit range. Does not account for leap seconds.
 // Lightweight (8 bytes); pass it by value.
