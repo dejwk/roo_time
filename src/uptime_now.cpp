@@ -12,10 +12,13 @@ int64_t esp_timer_get_time();
 inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
 
 inline static void __delayMicros(int64_t micros) {
-  if (micros < 16384) {
+  if (micros < 0) {
+    return;
+  } else if (micros < 16384) {
     delayMicroseconds(micros);
   } else {
     delay(micros / 1000);
+    delayMicroseconds(micros % 1000);
   }
 }
 
@@ -32,6 +35,7 @@ inline static void __delayMicros(int64_t micros) {
     delayMicroseconds(micros);
   } else {
     delay(micros / 1000);
+    delayMicroseconds(micros % 1000);
   }
 }
 
@@ -76,5 +80,6 @@ const Uptime IRAM_ATTR Uptime::Now() {
 }
 
 void IRAM_ATTR Delay(Interval interval) { __delayMicros(interval.inMicros()); }
+void IRAM_ATTR DelayUntil(Uptime deadline) { Delay(deadline - Uptime::Now()); }
 
 }  // namespace roo_time

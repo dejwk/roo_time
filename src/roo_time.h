@@ -329,8 +329,9 @@ inline Uptime operator+(const Interval& i, const Uptime& u) {
 // interval is negative.
 void Delay(Interval interval);
 
-// Delays execution until the specified instant.
-inline void DelayUntil(Uptime when) { Delay(when - Uptime::Now()); }
+// Delays execution until the specified deadline. Does nothing if the
+// deadline has already passed.
+void DelayUntil(Uptime deadline);
 
 // Represents an absolute 'instant in time'. Internally represented with
 // microsecond precision and 64-bit range. Does not account for leap seconds.
