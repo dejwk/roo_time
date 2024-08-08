@@ -19,6 +19,15 @@ namespace roo_time {
 // Should be passed by value.
 class Interval {
  public:
+  struct Components {
+    bool negative : 1;
+    uint64_t days : 26;
+    uint8_t hours: 5;
+    uint8_t minutes: 6;
+    uint8_t seconds: 6;
+    uint32_t micros: 20;
+  };
+
   constexpr Interval() : micros_(0) {}
 
   static const Interval Max() { return Interval(0x7FFFFFFFFFFFFFFF); }
@@ -43,6 +52,12 @@ class Interval {
     micros_ -= other.inMicros();
     return *this;
   }
+
+  // Breaks the interval into components (days, hours, minutes, etc.)
+  Components toComponents();
+
+  // Reconstitutes the interval from the components.
+  static Interval FromComponents(const Components& components);
 
  private:
   friend constexpr Interval Micros(int64_t micros);

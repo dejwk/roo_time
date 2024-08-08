@@ -3,6 +3,42 @@
 namespace roo_time {
 namespace {
 
+const int64_t kMaxComponentizedInterval =
+    (1024LL * 1024 * 64) * 24 * 3600 * 1000000LL - 1;
+}
+
+Interval::Components Interval::toComponents() {
+  Interval::Components c;
+  long v = micros_;
+  c.negative = (v < 0);
+  if (c.negative) v = -v;
+  if (v > kMaxComponentizedInterval) v = kMaxComponentizedInterval;
+  c.micros = v % 1000000L;
+  v /= 1000000L;
+  c.seconds = v % 60;
+  v /= 60;
+  c.minutes = v % 60;
+  v /= 60;
+  c.hours = v % 24;
+  v /= 24;
+  c.days = v;
+  return c;
+}
+
+Interval Interval::FromComponents(const Interval::Components& c) {
+  int64_t micros =
+      (((c.days * 24 + c.hours) * 60 + c.minutes) * 60 + c.seconds) *
+          1000000LL +
+      c.micros;
+  if (c.negative) micros = -micros;
+  if (micros == kMaxComponentizedInterval) {
+    return Micros(kMaxComponentizedInterval);
+  }
+  return Micros(micros);
+}
+
+namespace {
+
 // Credit:
 // https://stackoverflow.com/questions/7960318/math-to-convert-seconds-since-1970-into-date-and-vice-versa
 
