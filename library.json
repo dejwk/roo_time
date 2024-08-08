@@ -4,8 +4,8 @@
     "keywords": "time, date, hour, minute, second, day, week, month, year, RTC, UTC, walltime, timezone, epoch",
     "authors": [
         {
-            "name": "Dawid Kurzyniec",
-            "email": "dawid.kurzyniec@gmail.com",
+            "name": "Dejwk",
+            "email": "dejwk.oss@gmail.com",
             "maintainer": true
         }
     ],
@@ -13,7 +13,7 @@
         "type": "git",
         "url": "https://github.com/dejwk/roo_time"
     },
-    "version": "1.0.6",
+    "version": "1.0.7",
     "homepage": "https://github.com/dejwk/roo_time",
     "frameworks": [
         "Arduino",
