@@ -9,7 +9,7 @@ const int64_t kMaxComponentizedInterval =
 
 Interval::Components Interval::toComponents() {
   Interval::Components c;
-  long v = micros_;
+  int64_t v = micros_;
   c.negative = (v < 0);
   if (c.negative) v = -v;
   if (v > kMaxComponentizedInterval) v = kMaxComponentizedInterval;

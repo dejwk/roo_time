@@ -22,10 +22,10 @@ class Interval {
   struct Components {
     bool negative : 1;
     uint64_t days : 26;
-    uint8_t hours: 5;
-    uint8_t minutes: 6;
-    uint8_t seconds: 6;
-    uint32_t micros: 20;
+    uint8_t hours : 5;
+    uint8_t minutes : 6;
+    uint8_t seconds : 6;
+    uint32_t micros : 20;
   };
 
   constexpr Interval() : micros_(0) {}
@@ -60,11 +60,12 @@ class Interval {
   static Interval FromComponents(const Components& components);
 
  private:
-  friend constexpr Interval Micros(int64_t micros);
-  friend constexpr Interval Millis(int64_t millis);
-  friend constexpr Interval Seconds(int64_t seconds);
-  friend constexpr Interval Minutes(int64_t minutes);
-  friend constexpr Interval Hours(int64_t hours);
+  friend constexpr Interval Micros(long long micros);
+
+  friend constexpr Interval Millis(long long millis);
+  friend constexpr Interval Seconds(long long seconds);
+  friend constexpr Interval Minutes(long long minutes);
+  friend constexpr Interval Hours(long long hours);
 
   friend constexpr Interval Millis(float millis);
   friend constexpr Interval Seconds(float seconds);
@@ -81,62 +82,78 @@ class Interval {
   int64_t micros_;
 };
 
-inline constexpr Interval Micros(int64_t micros) { return Interval(micros); }
+inline constexpr Interval Micros(long long micros) { return Interval(micros); }
 
-inline constexpr Interval Millis(int64_t millis) {
-  return Interval(millis * 1000);
+inline constexpr Interval Millis(long long millis) {
+  return Micros(millis * 1000);
 }
 
-inline constexpr Interval Millis(int32_t millis) {
-  return Millis((int64_t)millis);
+inline constexpr Interval Millis(unsigned long long millis) {
+  return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(uint32_t millis) {
-  return Millis((int64_t)millis);
+inline constexpr Interval Millis(long millis) {
+  return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(int16_t millis) {
-  return Millis((int64_t)millis);
-}
-
-inline constexpr Interval Millis(uint16_t millis) {
-  return Millis((int64_t)millis);
+inline constexpr Interval Millis(unsigned long millis) {
+  return Millis((long long)millis);
 }
 
 inline constexpr Interval Millis(int millis) {
-  return Millis((int64_t)millis);
+  return Millis((long long)millis);
+}
+
+inline constexpr Interval Millis(unsigned int millis) {
+  return Millis((long long)millis);
+}
+
+inline constexpr Interval Millis(short millis) {
+  return Millis((long long)millis);
+}
+
+inline constexpr Interval Millis(unsigned short millis) {
+  return Millis((long long)millis);
 }
 
 inline constexpr Interval Millis(float millis) {
-  return Interval((int64_t)(millis * 1000));
+  return Interval((long long)(millis * 1000));
 }
 
 inline constexpr Interval Millis(double millis) {
-  return Interval((int64_t)(millis * 1000));
+  return Interval((long long)(millis * 1000));
 }
 
-inline constexpr Interval Seconds(int64_t seconds) {
-  return Interval(seconds * 1000 * 1000);
+inline constexpr Interval Seconds(long long seconds) {
+  return Micros(seconds * 1000 * 1000);
 }
 
-inline constexpr Interval Seconds(int32_t seconds) {
-  return Seconds((int64_t)seconds);
+inline constexpr Interval Seconds(unsigned long long seconds) {
+  return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(uint32_t seconds) {
-  return Seconds((int64_t)seconds);
+inline constexpr Interval Seconds(long seconds) {
+  return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(int16_t seconds) {
-  return Seconds((int64_t)seconds);
-}
-
-inline constexpr Interval Seconds(uint16_t seconds) {
-  return Seconds((int64_t)seconds);
+inline constexpr Interval Seconds(unsigned long seconds) {
+  return Seconds((long long)seconds);
 }
 
 inline constexpr Interval Seconds(int seconds) {
-  return Seconds((int64_t)seconds);
+  return Seconds((long long)seconds);
+}
+
+inline constexpr Interval Seconds(unsigned int seconds) {
+  return Seconds((long long)seconds);
+}
+
+inline constexpr Interval Seconds(short seconds) {
+  return Seconds((long long)seconds);
+}
+
+inline constexpr Interval Seconds(unsigned short seconds) {
+  return Seconds((long long)seconds);
 }
 
 inline constexpr Interval Seconds(float seconds) {
@@ -147,28 +164,36 @@ inline constexpr Interval Seconds(double seconds) {
   return Interval((int64_t)(seconds * 1000 * 1000));
 }
 
-inline constexpr Interval Minutes(int64_t minutes) {
+inline constexpr Interval Minutes(long long minutes) {
   return Interval(minutes * 1000 * 1000 * 60);
 }
 
-inline constexpr Interval Minutes(int32_t minutes) {
-  return Minutes((int64_t)minutes);
+inline constexpr Interval Minutes(unsigned long long minutes) {
+  return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(uint32_t minutes) {
-  return Minutes((int64_t)minutes);
+inline constexpr Interval Minutes(long minutes) {
+  return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(int16_t minutes) {
-  return Minutes((int64_t)minutes);
-}
-
-inline constexpr Interval Minutes(uint16_t minutes) {
-  return Minutes((int64_t)minutes);
+inline constexpr Interval Minutes(unsigned long minutes) {
+  return Minutes((long long)minutes);
 }
 
 inline constexpr Interval Minutes(int minutes) {
-  return Minutes((int64_t)minutes);
+  return Minutes((long long)minutes);
+}
+
+inline constexpr Interval Minutes(unsigned int minutes) {
+  return Minutes((long long)minutes);
+}
+
+inline constexpr Interval Minutes(short minutes) {
+  return Minutes((long long)minutes);
+}
+
+inline constexpr Interval Minutes(unsigned short minutes) {
+  return Minutes((long long)minutes);
 }
 
 inline constexpr Interval Minutes(float minutes) {
@@ -179,24 +204,36 @@ inline constexpr Interval Minutes(double minutes) {
   return Interval((int64_t)(minutes * 1000 * 1000 * 60));
 }
 
-inline constexpr Interval Hours(int64_t hours) {
+inline constexpr Interval Hours(long long hours) {
   return Interval(hours * 1000 * 1000 * 60 * 60);
 }
 
-inline constexpr Interval Hours(int32_t hours) { return Hours((int64_t)hours); }
-
-inline constexpr Interval Hours(uint32_t hours) {
-  return Hours((int64_t)hours);
+inline constexpr Interval Hours(unsigned long long minutes) {
+  return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(int16_t hours) { return Hours((int64_t)hours); }
-
-inline constexpr Interval Hours(uint16_t hours) {
-  return Hours((int64_t)hours);
+inline constexpr Interval Hours(long minutes) {
+  return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(int hours) {
-  return Hours((int64_t)hours);
+inline constexpr Interval Hours(unsigned long minutes) {
+  return Hours((long long)minutes);
+}
+
+inline constexpr Interval Hours(int minutes) {
+  return Hours((long long)minutes);
+}
+
+inline constexpr Interval Hours(unsigned int minutes) {
+  return Hours((long long)minutes);
+}
+
+inline constexpr Interval Hours(short minutes) {
+  return Hours((long long)minutes);
+}
+
+inline constexpr Interval Hours(unsigned short minutes) {
+  return Hours((long long)minutes);
 }
 
 inline constexpr Interval Hours(float hours) {
