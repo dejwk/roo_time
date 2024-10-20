@@ -103,6 +103,10 @@ inline constexpr Interval Millis(uint16_t millis) {
   return Millis((int64_t)millis);
 }
 
+inline constexpr Interval Millis(int millis) {
+  return Millis((int64_t)millis);
+}
+
 inline constexpr Interval Millis(float millis) {
   return Interval((int64_t)(millis * 1000));
 }
@@ -128,6 +132,10 @@ inline constexpr Interval Seconds(int16_t seconds) {
 }
 
 inline constexpr Interval Seconds(uint16_t seconds) {
+  return Seconds((int64_t)seconds);
+}
+
+inline constexpr Interval Seconds(int seconds) {
   return Seconds((int64_t)seconds);
 }
 
@@ -159,6 +167,10 @@ inline constexpr Interval Minutes(uint16_t minutes) {
   return Minutes((int64_t)minutes);
 }
 
+inline constexpr Interval Minutes(int minutes) {
+  return Minutes((int64_t)minutes);
+}
+
 inline constexpr Interval Minutes(float minutes) {
   return Interval((int64_t)(minutes * 1000 * 1000 * 60));
 }
@@ -180,6 +192,10 @@ inline constexpr Interval Hours(uint32_t hours) {
 inline constexpr Interval Hours(int16_t hours) { return Hours((int64_t)hours); }
 
 inline constexpr Interval Hours(uint16_t hours) {
+  return Hours((int64_t)hours);
+}
+
+inline constexpr Interval Hours(int hours) {
   return Hours((int64_t)hours);
 }
 
