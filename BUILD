@@ -17,7 +17,6 @@ cc_library(
     srcs = [
         "src/roo_time.cpp",
         "src/roo_time.h",
-        "src/roo_time/ds3231.h",
     ],
     includes = [
         "src",
