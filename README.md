@@ -44,7 +44,7 @@ void loop() {
 ## Measuring wall time
 
 The library works well with device-specific libraries, via the base abstraction of a 'WallTimeClock'. On ESP chips, you can use
-'SystemClock' to read time from NTP servers via WiFi. For DS3231, you can use a companion library  [roo_time_ds3231](github.com/dejwk/roo_time_ds3231).
+'SystemClock' to read time from NTP servers via WiFi. For DS3231, you can use a companion library  [roo_time_ds3231](http://github.com/dejwk/roo_time_ds3231).
 If you have another time source, you can use it by implementing a simple adapter:
 
 ```cpp
@@ -72,7 +72,7 @@ class MyClock : public WallTimeClock {
 ```
 
 If your device returns date/time components (year, month, day, etc.), you can convert them to 'WallTime' using the
-conversion functions described below. (Also, see the [roo_time_ds3231](github.com/dejwk/roo_time_ds3231) library for a concrete illustration).
+conversion functions described below. (Also, see the [roo_time_ds3231](http://github.com/dejwk/roo_time_ds3231) library for a concrete illustration).
 
 Once you have an implementation of the 'WallTimeClock', you can use it like this:
 
