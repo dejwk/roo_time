@@ -492,13 +492,28 @@ constexpr TimeZone UTC = TimeZone(Micros(0));
 }
 
 enum DayOfWeek {
-  SUNDAY = 0,
-  MONDAY,
-  TUESDAY,
-  WEDNESDAY,
-  THURSDAY,
-  FRIDAY,
-  SATURDAY
+  kSunday = 0,
+  kMonday = 1,
+  kTuesday = 2,
+  kWednesday = 3,
+  kThursday = 4,
+  kFriday = 5,
+  kSaturday = 6
+};
+
+enum Month {
+  kJanuary = 1,
+  kFebruary = 2,
+  kMarch = 3,
+  kApril = 4,
+  kMay = 5,
+  kJune = 6,
+  kJuly = 7,
+  kAugust = 8,
+  kSeptember = 9,
+  kOctober = 10,
+  kNovember = 11,
+  kDecember = 12
 };
 
 // Represents an absolute 'instant in time', represented as a date and time in
@@ -534,7 +549,7 @@ class DateTime {
   int16_t year() const { return year_; }
 
   // [1..12]
-  uint8_t month() const { return month_; }
+  Month month() const { return (Month)month_; }
 
   // [1..max_day]
   uint8_t day() const { return day_; }
