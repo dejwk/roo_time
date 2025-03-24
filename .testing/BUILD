@@ -37,6 +37,6 @@ cc_test(
     linkstatic = 1,
     deps = [
         ":roo_time",
-        "@gtest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
