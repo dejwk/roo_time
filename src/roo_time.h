@@ -33,10 +33,55 @@ class Interval {
   static const Interval Max() { return Interval(0x7FFFFFFFFFFFFFFF); }
 
   constexpr int64_t inMicros() const { return micros_; }
-  constexpr int64_t inMillis() const { return micros_ / 1000LL; }
-  constexpr int64_t inSeconds() const { return micros_ / 1000000LL; }
-  constexpr int64_t inMinutes() const { return micros_ / 60000000LL; }
-  constexpr int64_t inHours() const { return micros_ / 3600000000LL; }
+
+  constexpr int64_t inMillis() const { return inMillisRoundedDown(); }
+  constexpr int64_t inSeconds() const { return inSecondsRoundedDown(); }
+  constexpr int64_t inMinutes() const { return inMinutesRoundedDown(); }
+  constexpr int64_t inHours() const { return inHoursRoundedDown(); }
+
+  constexpr int64_t inMillisRoundedDown() const { return micros_ / 1000LL; }
+
+  constexpr int64_t inSecondsRoundedDown() const { return micros_ / 1000000LL; }
+
+  constexpr int64_t inMinutesRoundedDown() const {
+    return micros_ / 60000000LL;
+  }
+
+  constexpr int64_t inHoursRoundedDown() const {
+    return micros_ / 3600000000LL;
+  }
+
+  constexpr int64_t inMillisRoundedUp() const {
+    return (micros_ + 999LL) / 1000LL;
+  }
+
+  constexpr int64_t inSecondsRoundedUp() const {
+    return (micros_ + 999999LL) / 1000000LL;
+  }
+
+  constexpr int64_t inMinutesRoundedUp() const {
+    return (micros_ + 59999999LL) / 60000000LL;
+  }
+
+  constexpr int64_t inHoursRoundedUp() const {
+    return (micros_ + 3599999999LL) / 3600000000LL;
+  }
+
+  constexpr int64_t inMillisRoundedNearest() const {
+    return (micros_ + 499LL) / 1000LL;
+  }
+
+  constexpr int64_t inSecondsRoundedNearest() const {
+    return (micros_ + 499999LL) / 1000000LL;
+  }
+
+  constexpr int64_t inMinutesRoundedNearest() const {
+    return (micros_ + 29999999LL) / 60000000LL;
+  }
+
+  constexpr int64_t inHoursRoundedNearest() const {
+    return (micros_ + 1799999999LL) / 3600000000LL;
+  }
 
   constexpr float inMillisFloat() const { return micros_ / 1000.0; }
   constexpr float inSecondsFloat() const { return micros_ / 1000000.0; }
