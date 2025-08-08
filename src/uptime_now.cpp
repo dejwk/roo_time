@@ -1,6 +1,17 @@
 #include "roo_time.h"
 
-#if defined(ESP32) || defined(ESP8266)
+#if defined(ROO_TESTING)
+
+#include "roo_testing/system/timer.h"
+
+inline static int64_t __uptime() { return system_time_get_micros(); }
+
+inline static void __delayMicros(int64_t micros) {
+  system_time_delay_micros(micros);
+}
+
+
+#elif defined(ESP32) || defined(ESP8266)
 #include <Arduino.h>
 
 #include "esp_attr.h"
@@ -22,7 +33,7 @@ inline static void __delayMicros(int64_t micros) {
   }
 }
 
-#elif defined(ARDUINO) || defined(ROO_TESTING)
+#elif defined(ARDUINO)
 
 #include <Arduino.h>
 
