@@ -35,7 +35,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":core",
-        "//roo_testing:arduino",
+        "@roo_testing//roo_testing/system:timer",
     ],
 )
 
@@ -48,4 +48,19 @@ cc_library(
     deps = [
         ":core",
     ],
+)
+
+cc_test(
+    name = "roo_time_test",
+    srcs = [
+        "test/roo_time_test.cpp",
+    ],
+    copts = ["-Iexternal/gtest/include"],
+    includes = ["src"],
+    linkstatic = 1,
+    deps = [
+        ":roo_time",
+        "@googletest//:gtest_main",
+    ],
+    size = "small",
 )
