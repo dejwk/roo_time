@@ -1,6 +1,6 @@
 {
     "name": "roo_time",
-    "description": "Arduino-compliant ESP32-tested library for basic management of elapsed time, wall time, and date time with multi-timezone support. Provides type safety around time intervals and different time units, guarding against common programming errors like confusing time units, or confusing 'timestamps' with 'intervals'.",
+    "description": "Arduino-compliant ESP32-tested library for basic management of elapsed time, wall time, and date time with multi-timezone support. Provides type safety around durations and different time units, guarding against common programming errors like confusing time units, or confusing 'timestamps' with 'durations'.",
     "keywords": "time, date, hour, minute, second, day, week, month, year, RTC, UTC, walltime, timezone, epoch",
     "authors": [
         {

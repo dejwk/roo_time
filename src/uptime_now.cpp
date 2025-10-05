@@ -90,7 +90,7 @@ const Uptime IRAM_ATTR Uptime::Now() {
   return Uptime(now);
 }
 
-void IRAM_ATTR Delay(Interval interval) { __delayMicros(interval.inMicros()); }
+void IRAM_ATTR Delay(Duration duration) { __delayMicros(duration.inMicros()); }
 void IRAM_ATTR DelayUntil(Uptime deadline) { Delay(deadline - Uptime::Now()); }
 
 }  // namespace roo_time

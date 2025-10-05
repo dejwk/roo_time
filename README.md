@@ -1,7 +1,7 @@
 # roo_time
 Arduino-compliant ESP32 (etc.) library for basic management of elapsed time, wall time, and date time with multi-timezone support.
-Provides type safety around time intervals and different time units, guarding against common programming errors like confusing time
-units, or confusing 'timestamps' with 'intervals'.
+Provides type safety around durations and different time units, guarding against common programming errors like confusing time
+units, or confusing 'timestamps' with 'durations'.
 
 When used with Espressif chips, uses microsecond precision, and stores the time as int64_t
 (in other words, it will not overflow on you).
@@ -28,12 +28,12 @@ void loop() {
   Uptime now = Uptime::Now();  // Carries microseconds since program start.
   foo(now.inMillis());         // Conveniently convert to various time units, as needed.
   now += Hours(2);             // Basic arithmetics and convenience construction.
-  if (now > Hours(2))          // Compile error: don't conflate time instant with time interval.
+  if (now > Hours(2))          // Compile error: don't conflate time instant with duration.
   
   // Measuring elapsed time
   Uptime start = Uptime::Now();
   // ... do something
-  Interval elapsed = Uptime::Now() - start;
+  Duration elapsed = Uptime::Now() - start;
   if (elapsed > Minutes(2)) {  // This is now OK.
     // ...
   }
@@ -110,7 +110,7 @@ if (now.dayOfWeek() == FRIDAY) { /* I like Fridays! */ }
 
 ## Timezones and daylight savings
 
-Timezone is just a type-safe interval wrapper:
+Timezone is just a type-safe duration wrapper:
 
 ```cpp
 static const Timezone CEST(Hours(2)); 
@@ -122,7 +122,7 @@ summer time begins at 2AM local time on the last Sunday of March, and it ends at
 on the last Sunday of October. The appropriate daylight-savings-aware clock looks like this:
 
 ```cpp
-Interval utcOffset(WallTime t) {
+Duration utcOffset(WallTime t) {
   int16_t y = DateTime(t, timezone::UTC).year();
   // Figure out the day of the week of the last day of March that year.
   DateTime mar31(y, 3, 31, timezone::UTC);
@@ -156,11 +156,11 @@ class DSTWatch {
 
 The library will protect you from making common mistakes, such as mixing up time units,
 mixing up uptime (i.e. the time since the device is running) with wall time (i.e. duration
-since Epoch), and mixing up intervals with time points:
+since Epoch), and mixing up durations with time points:
 
 ```cpp
 clock.now() - Uptime::Now();  // ERROR: can't mix up wall time and uptime.
-clock.now() - (Uptime::Now() - Uptime::Start());  // Now OK; explicitly converted to an interval.
+clock.now() - (Uptime::Now() - Uptime::Start());  // Now OK; explicitly converted to an duration.
                                                   // Returns the wall time of last restart.
 Uptime::Now() + 20;           // ERROR: 20 of what?
 Uptime::Now() + Seconds(20);  // Now OK.

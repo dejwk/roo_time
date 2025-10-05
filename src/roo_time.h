@@ -10,14 +10,14 @@
 
 // Convenience classes for handling delays, measure elapsed time, etc.,
 // providing safety against common errors like confusing time units
-// or confusing 'timestamps' with 'intervals'.
+// or confusing 'timestamps' with 'durations'.
 
 namespace roo_time {
 
 // Represents an 'amount of time', e.g. e.g. 5s, 10 min, etc.
 // Internally represented with microsecond precision and 64-bit range.
 // Should be passed by value.
-class Interval {
+class Duration {
  public:
   struct Components {
     bool negative : 1;
@@ -28,9 +28,9 @@ class Interval {
     uint32_t micros : 20;
   };
 
-  constexpr Interval() : micros_(0) {}
+  constexpr Duration() : micros_(0) {}
 
-  static const Interval Max() { return Interval(0x7FFFFFFFFFFFFFFF); }
+  static const Duration Max() { return Duration(0x7FFFFFFFFFFFFFFF); }
 
   constexpr int64_t inMicros() const { return micros_; }
 
@@ -88,244 +88,247 @@ class Interval {
   constexpr float inMinutesFloat() const { return micros_ / 60000000.0; }
   constexpr float inHoursFloat() const { return micros_ / 3600000000.0; }
 
-  Interval& operator+=(const Interval& other) {
+  Duration& operator+=(const Duration& other) {
     micros_ += other.inMicros();
     return *this;
   }
 
-  Interval& operator-=(const Interval& other) {
+  Duration& operator-=(const Duration& other) {
     micros_ -= other.inMicros();
     return *this;
   }
 
-  // Breaks the interval into components (days, hours, minutes, etc.)
+  // Breaks the duration into components (days, hours, minutes, etc.)
   Components toComponents();
 
-  // Reconstitutes the interval from the components.
-  static Interval FromComponents(const Components& components);
+  // Reconstitutes the duration from the components.
+  static Duration FromComponents(const Components& components);
 
  private:
-  friend constexpr Interval Micros(long long micros);
+  friend constexpr Duration Micros(long long micros);
 
-  friend constexpr Interval Millis(long long millis);
-  friend constexpr Interval Seconds(long long seconds);
-  friend constexpr Interval Minutes(long long minutes);
-  friend constexpr Interval Hours(long long hours);
+  friend constexpr Duration Millis(long long millis);
+  friend constexpr Duration Seconds(long long seconds);
+  friend constexpr Duration Minutes(long long minutes);
+  friend constexpr Duration Hours(long long hours);
 
-  friend constexpr Interval Millis(float millis);
-  friend constexpr Interval Seconds(float seconds);
-  friend constexpr Interval Minutes(float minutes);
-  friend constexpr Interval Hours(float hours);
+  friend constexpr Duration Millis(float millis);
+  friend constexpr Duration Seconds(float seconds);
+  friend constexpr Duration Minutes(float minutes);
+  friend constexpr Duration Hours(float hours);
 
-  friend constexpr Interval Millis(double millis);
-  friend constexpr Interval Seconds(double seconds);
-  friend constexpr Interval Minutes(double minutes);
-  friend constexpr Interval Hours(double hours);
+  friend constexpr Duration Millis(double millis);
+  friend constexpr Duration Seconds(double seconds);
+  friend constexpr Duration Minutes(double minutes);
+  friend constexpr Duration Hours(double hours);
 
-  constexpr Interval(int64_t micros) : micros_(micros) {}
+  constexpr Duration(int64_t micros) : micros_(micros) {}
 
   int64_t micros_;
 };
 
-inline constexpr Interval Micros(long long micros) { return Interval(micros); }
+// For backwards compatibiliity. Prefer 'Duration' in the new code.
+using Interval = Duration;
 
-inline constexpr Interval Millis(long long millis) {
+inline constexpr Duration Micros(long long micros) { return Duration(micros); }
+
+inline constexpr Duration Millis(long long millis) {
   return Micros(millis * 1000);
 }
 
-inline constexpr Interval Millis(unsigned long long millis) {
+inline constexpr Duration Millis(unsigned long long millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(long millis) {
+inline constexpr Duration Millis(long millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(unsigned long millis) {
+inline constexpr Duration Millis(unsigned long millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(int millis) {
+inline constexpr Duration Millis(int millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(unsigned int millis) {
+inline constexpr Duration Millis(unsigned int millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(short millis) {
+inline constexpr Duration Millis(short millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(unsigned short millis) {
+inline constexpr Duration Millis(unsigned short millis) {
   return Millis((long long)millis);
 }
 
-inline constexpr Interval Millis(float millis) {
-  return Interval((long long)(millis * 1000));
+inline constexpr Duration Millis(float millis) {
+  return Duration((long long)(millis * 1000));
 }
 
-inline constexpr Interval Millis(double millis) {
-  return Interval((long long)(millis * 1000));
+inline constexpr Duration Millis(double millis) {
+  return Duration((long long)(millis * 1000));
 }
 
-inline constexpr Interval Seconds(long long seconds) {
+inline constexpr Duration Seconds(long long seconds) {
   return Micros(seconds * 1000 * 1000);
 }
 
-inline constexpr Interval Seconds(unsigned long long seconds) {
+inline constexpr Duration Seconds(unsigned long long seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(long seconds) {
+inline constexpr Duration Seconds(long seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(unsigned long seconds) {
+inline constexpr Duration Seconds(unsigned long seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(int seconds) {
+inline constexpr Duration Seconds(int seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(unsigned int seconds) {
+inline constexpr Duration Seconds(unsigned int seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(short seconds) {
+inline constexpr Duration Seconds(short seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(unsigned short seconds) {
+inline constexpr Duration Seconds(unsigned short seconds) {
   return Seconds((long long)seconds);
 }
 
-inline constexpr Interval Seconds(float seconds) {
-  return Interval((int64_t)(seconds * 1000 * 1000));
+inline constexpr Duration Seconds(float seconds) {
+  return Duration((int64_t)(seconds * 1000 * 1000));
 }
 
-inline constexpr Interval Seconds(double seconds) {
-  return Interval((int64_t)(seconds * 1000 * 1000));
+inline constexpr Duration Seconds(double seconds) {
+  return Duration((int64_t)(seconds * 1000 * 1000));
 }
 
-inline constexpr Interval Minutes(long long minutes) {
-  return Interval(minutes * 1000 * 1000 * 60);
+inline constexpr Duration Minutes(long long minutes) {
+  return Duration(minutes * 1000 * 1000 * 60);
 }
 
-inline constexpr Interval Minutes(unsigned long long minutes) {
+inline constexpr Duration Minutes(unsigned long long minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(long minutes) {
+inline constexpr Duration Minutes(long minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(unsigned long minutes) {
+inline constexpr Duration Minutes(unsigned long minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(int minutes) {
+inline constexpr Duration Minutes(int minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(unsigned int minutes) {
+inline constexpr Duration Minutes(unsigned int minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(short minutes) {
+inline constexpr Duration Minutes(short minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(unsigned short minutes) {
+inline constexpr Duration Minutes(unsigned short minutes) {
   return Minutes((long long)minutes);
 }
 
-inline constexpr Interval Minutes(float minutes) {
-  return Interval((int64_t)(minutes * 1000 * 1000 * 60));
+inline constexpr Duration Minutes(float minutes) {
+  return Duration((int64_t)(minutes * 1000 * 1000 * 60));
 }
 
-inline constexpr Interval Minutes(double minutes) {
-  return Interval((int64_t)(minutes * 1000 * 1000 * 60));
+inline constexpr Duration Minutes(double minutes) {
+  return Duration((int64_t)(minutes * 1000 * 1000 * 60));
 }
 
-inline constexpr Interval Hours(long long hours) {
-  return Interval(hours * 1000 * 1000 * 60 * 60);
+inline constexpr Duration Hours(long long hours) {
+  return Duration(hours * 1000 * 1000 * 60 * 60);
 }
 
-inline constexpr Interval Hours(unsigned long long minutes) {
+inline constexpr Duration Hours(unsigned long long minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(long minutes) {
+inline constexpr Duration Hours(long minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(unsigned long minutes) {
+inline constexpr Duration Hours(unsigned long minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(int minutes) {
+inline constexpr Duration Hours(int minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(unsigned int minutes) {
+inline constexpr Duration Hours(unsigned int minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(short minutes) {
+inline constexpr Duration Hours(short minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(unsigned short minutes) {
+inline constexpr Duration Hours(unsigned short minutes) {
   return Hours((long long)minutes);
 }
 
-inline constexpr Interval Hours(float hours) {
-  return Interval((int64_t)(hours * 1000 * 1000 * 60 * 60));
+inline constexpr Duration Hours(float hours) {
+  return Duration((int64_t)(hours * 1000 * 1000 * 60 * 60));
 }
 
-inline constexpr Interval Hours(double hours) {
-  return Interval((int64_t)(hours * 1000 * 1000 * 60 * 60));
+inline constexpr Duration Hours(double hours) {
+  return Duration((int64_t)(hours * 1000 * 1000 * 60 * 60));
 }
 
-inline bool operator==(const Interval& a, const Interval& b) {
+inline bool operator==(const Duration& a, const Duration& b) {
   return a.inMicros() == b.inMicros();
 }
 
-inline bool operator!=(const Interval& a, const Interval& b) {
+inline bool operator!=(const Duration& a, const Duration& b) {
   return a.inMicros() != b.inMicros();
 }
 
-inline bool operator<(const Interval& a, const Interval& b) {
+inline bool operator<(const Duration& a, const Duration& b) {
   return a.inMicros() < b.inMicros();
 }
 
-inline bool operator>(const Interval& a, const Interval& b) {
+inline bool operator>(const Duration& a, const Duration& b) {
   return a.inMicros() > b.inMicros();
 }
 
-inline bool operator<=(const Interval& a, const Interval& b) {
+inline bool operator<=(const Duration& a, const Duration& b) {
   return a.inMicros() <= b.inMicros();
 }
 
-inline bool operator>=(const Interval& a, const Interval& b) {
+inline bool operator>=(const Duration& a, const Duration& b) {
   return a.inMicros() >= b.inMicros();
 }
 
-inline Interval operator+(const Interval& a, const Interval& b) {
+inline Duration operator+(const Duration& a, const Duration& b) {
   return Micros(a.inMicros() + b.inMicros());
 }
 
-inline Interval operator-(const Interval& a, const Interval& b) {
+inline Duration operator-(const Duration& a, const Duration& b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
-inline Interval operator*(const Interval& a, int b) {
+inline Duration operator*(const Duration& a, int b) {
   return Micros(a.inMicros() * b);
 }
 
-inline Interval operator*(int a, const Interval& b) {
+inline Duration operator*(int a, const Duration& b) {
   return Micros(a * b.inMicros());
 }
 
@@ -359,24 +362,24 @@ class Uptime {
   int64_t inMinutes() const { return micros_ / 60000000LL; }
   int64_t inHours() const { return micros_ / 3600000000LL; }
 
-  // Interval HowLongAgo() const {
-  //   return Interval(Now().ToMicros() - this->ToMicros);
+  // Duration HowLongAgo() const {
+  //   return Duration(Now().ToMicros() - this->ToMicros);
   // }
 
-  Uptime& operator+=(const Interval& i) {
+  Uptime& operator+=(const Duration& i) {
     micros_ += i.inMicros();
     return *this;
   }
 
-  Uptime& operator-=(const Interval& i) {
+  Uptime& operator-=(const Duration& i) {
     micros_ -= i.inMicros();
     return *this;
   }
 
  private:
-  friend Uptime operator+(const Uptime& u, const Interval& i);
-  friend Uptime operator-(const Uptime& u, const Interval& i);
-  friend Uptime operator+(const Interval& i, const Uptime& u);
+  friend Uptime operator+(const Uptime& u, const Duration& i);
+  friend Uptime operator-(const Uptime& u, const Duration& i);
+  friend Uptime operator+(const Duration& i, const Uptime& u);
 
   Uptime(int64_t micros) : micros_(micros) {}
 
@@ -407,25 +410,25 @@ inline bool operator>=(const Uptime& a, const Uptime& b) {
   return a.inMicros() >= b.inMicros();
 }
 
-inline Interval operator-(const Uptime& a, const Uptime& b) {
+inline Duration operator-(const Uptime& a, const Uptime& b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
-inline Uptime operator+(const Uptime& u, const Interval& i) {
+inline Uptime operator+(const Uptime& u, const Duration& i) {
   return Uptime(u.inMicros() + i.inMicros());
 }
 
-inline Uptime operator-(const Uptime& u, const Interval& i) {
+inline Uptime operator-(const Uptime& u, const Duration& i) {
   return Uptime(u.inMicros() - i.inMicros());
 }
 
-inline Uptime operator+(const Interval& i, const Uptime& u) {
+inline Uptime operator+(const Duration& i, const Uptime& u) {
   return Uptime(u.inMicros() + i.inMicros());
 }
 
-// Delays execution for the specified time interval. Does nothing if the
-// interval is negative.
-void Delay(Interval interval);
+// Delays execution for the specified duration. Does nothing if the duration is
+// negative.
+void Delay(Duration duration);
 
 // Delays execution until the specified deadline. Does nothing if the
 // deadline has already passed.
@@ -437,26 +440,26 @@ void DelayUntil(Uptime deadline);
 class WallTime {
  public:
   WallTime() {}
-  explicit WallTime(Interval since_epoch) : since_epoch_(since_epoch) {}
+  explicit WallTime(Duration since_epoch) : since_epoch_(since_epoch) {}
 
-  Interval sinceEpoch() const { return since_epoch_; }
+  Duration sinceEpoch() const { return since_epoch_; }
 
-  WallTime& operator+=(const Interval& i) {
+  WallTime& operator+=(const Duration& i) {
     since_epoch_ += i;
     return *this;
   }
 
-  WallTime& operator-=(const Interval& i) {
+  WallTime& operator-=(const Duration& i) {
     since_epoch_ -= i;
     return *this;
   }
 
  private:
-  friend WallTime operator+(const WallTime&, const Interval&);
-  friend WallTime operator-(const WallTime&, const Interval&);
-  friend WallTime operator+(const Interval&, const WallTime&);
+  friend WallTime operator+(const WallTime&, const Duration&);
+  friend WallTime operator-(const WallTime&, const Duration&);
+  friend WallTime operator+(const Duration&, const WallTime&);
 
-  Interval since_epoch_;
+  Duration since_epoch_;
 };
 
 inline bool operator==(const WallTime& a, const WallTime& b) {
@@ -483,19 +486,19 @@ inline bool operator>=(const WallTime& a, const WallTime& b) {
   return a.sinceEpoch() >= b.sinceEpoch();
 }
 
-inline Interval operator-(const WallTime& a, const WallTime& b) {
+inline Duration operator-(const WallTime& a, const WallTime& b) {
   return a.sinceEpoch() - b.sinceEpoch();
 }
 
-inline WallTime operator+(const WallTime& t, const Interval& i) {
+inline WallTime operator+(const WallTime& t, const Duration& i) {
   return WallTime(t.sinceEpoch() + i);
 }
 
-inline WallTime operator-(const WallTime& t, const Interval& i) {
+inline WallTime operator-(const WallTime& t, const Duration& i) {
   return WallTime(t.sinceEpoch() - i);
 }
 
-inline WallTime operator+(const Interval& i, const WallTime& t) {
+inline WallTime operator+(const Duration& i, const WallTime& t) {
   return WallTime(t.sinceEpoch() + i);
 }
 
@@ -522,11 +525,11 @@ class TimeZone {
   TimeZone() : offset_minutes_(0) {}
 
   // Creates a time zone with the given UTC offset.
-  constexpr explicit TimeZone(Interval offset)
+  constexpr explicit TimeZone(Duration offset)
       : offset_minutes_(offset.inMinutes()) {}
 
   // Returns the UTC offset of this timezone.
-  constexpr Interval offset() const { return Minutes(offset_minutes_); }
+  constexpr Duration offset() const { return Minutes(offset_minutes_); }
 
  private:
   int16_t offset_minutes_;
@@ -667,8 +670,8 @@ inline bool operator!=(const DateTime& a, const DateTime& b) {
 #include <ostream>
 
 inline std::ostream& operator<<(std::ostream& os,
-                                const roo_time::Interval& interval) {
-  os << interval.inMicros() << " us";
+                                const roo_time::Duration& duration) {
+  os << duration.inMicros() << " us";
   return os;
 }
 

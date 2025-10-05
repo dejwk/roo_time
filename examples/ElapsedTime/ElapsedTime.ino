@@ -23,7 +23,7 @@ void loop() {
   // Measuring elapsed time.
   Uptime start = Uptime::Now();
   delay(3500);
-  Interval elapsed = Uptime::Now() - start;
+  Duration elapsed = Uptime::Now() - start;
   if (elapsed > Seconds(2)) {
     Serial.printf("Elapsed: %d ms\n", elapsed.inMillis());
   }

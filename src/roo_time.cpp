@@ -3,16 +3,16 @@
 namespace roo_time {
 namespace {
 
-const int64_t kMaxComponentizedInterval =
+const int64_t kMaxComponentizedDuration =
     (1024LL * 1024 * 64) * 24 * 3600 * 1000000LL - 1;
 }
 
-Interval::Components Interval::toComponents() {
-  Interval::Components c;
+Duration::Components Duration::toComponents() {
+  Duration::Components c;
   int64_t v = micros_;
   c.negative = (v < 0);
   if (c.negative) v = -v;
-  if (v > kMaxComponentizedInterval) v = kMaxComponentizedInterval;
+  if (v > kMaxComponentizedDuration) v = kMaxComponentizedDuration;
   c.micros = v % 1000000L;
   v /= 1000000L;
   c.seconds = v % 60;
@@ -25,14 +25,14 @@ Interval::Components Interval::toComponents() {
   return c;
 }
 
-Interval Interval::FromComponents(const Interval::Components& c) {
+Duration Duration::FromComponents(const Duration::Components& c) {
   int64_t micros =
       (((c.days * 24 + c.hours) * 60 + c.minutes) * 60 + c.seconds) *
           1000000LL +
       c.micros;
   if (c.negative) micros = -micros;
-  if (micros == kMaxComponentizedInterval) {
-    return Micros(kMaxComponentizedInterval);
+  if (micros == kMaxComponentizedDuration) {
+    return Micros(kMaxComponentizedDuration);
   }
   return Micros(micros);
 }
@@ -139,7 +139,7 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
 
 DateTime::DateTime(WallTime wall_time, TimeZone tz)
     : walltime_(wall_time), tz_(tz) {
-  Interval sinceEpochTz = wall_time.sinceEpoch() + tz.offset();
+  Duration sinceEpochTz = wall_time.sinceEpoch() + tz.offset();
   int32_t unix_days = sinceEpochTz.inHours() / 24;
   civil_from_days(unix_days, &year_, &month_, &day_);
   day_of_year_ = day_of_year(year_, month_, day_);

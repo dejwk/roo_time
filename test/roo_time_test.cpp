@@ -4,25 +4,25 @@
 
 namespace roo_time {
 
-TEST(Interval, NarrowingConversions) {
-  Interval a = Micros(12345678901);
+TEST(Duration, NarrowingConversions) {
+  Duration a = Micros(12345678901);
   EXPECT_EQ(12345678, a.inMillis());
   EXPECT_EQ(12345, a.inSeconds());
   EXPECT_EQ(205, a.inMinutes());
   EXPECT_EQ(3, a.inHours());
 }
 
-TEST(Interval, ExpandingConversions) {
-  Interval a = Hours(3);
+TEST(Duration, ExpandingConversions) {
+  Duration a = Hours(3);
   EXPECT_EQ(180, a.inMinutes());
   EXPECT_EQ(180 * 60, a.inSeconds());
   EXPECT_EQ(180 * 60 * 1000, a.inMillis());
   EXPECT_EQ(180L * 60 * 1000000, a.inMicros());
 }
 
-TEST(Interval, Arithmetics) {
-  Interval a = Micros(150);
-  Interval b = Micros(27);
+TEST(Duration, Arithmetics) {
+  Duration a = Micros(150);
+  Duration b = Micros(27);
   EXPECT_EQ(177, (a + b).inMicros());
   EXPECT_EQ(123, (a - b).inMicros());
   a += b;
@@ -33,7 +33,7 @@ TEST(Interval, Arithmetics) {
   EXPECT_EQ(177, a.inMicros());
 }
 
-TEST(Interval, Comparison) {
+TEST(Duration, Comparison) {
   EXPECT_EQ(Micros(150), Micros(150));
   EXPECT_FALSE(Micros(150) != Micros(150));
   EXPECT_NE(Micros(150), Micros(151));
@@ -70,7 +70,7 @@ TEST(Uptime, Arithmetics) {
   Uptime a = Uptime::Start() + Micros(150);
   Uptime b = Uptime::Start() + Micros(27);
   EXPECT_EQ(123, (a - b).inMicros());
-  Interval delta = Micros(13);
+  Duration delta = Micros(13);
   EXPECT_EQ(136, (a - b + delta).inMicros());
   EXPECT_EQ(136, (a + delta - b).inMicros());
 
@@ -100,7 +100,7 @@ TEST(WallTime, Arithmetics) {
   WallTime a = WallTime(Micros(150));
   WallTime b = WallTime(Micros(27));
   EXPECT_EQ(123, (a - b).inMicros());
-  Interval delta = Micros(13);
+  Duration delta = Micros(13);
   EXPECT_EQ(136, (a - b + delta).inMicros());
   EXPECT_EQ(136, (a + delta - b).inMicros());
 
