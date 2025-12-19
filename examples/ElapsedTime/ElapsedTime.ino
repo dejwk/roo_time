@@ -25,7 +25,9 @@ void loop() {
   delay(3500);
   Duration elapsed = Uptime::Now() - start;
   if (elapsed > Seconds(2)) {
-    Serial.printf("Elapsed: %d ms\n", elapsed.inMillis());
+    Serial.print("Elapsed:");
+    Serial.print(elapsed.inMillis());
+    Serial.println("ms");
   }
 
   delay(5000);
