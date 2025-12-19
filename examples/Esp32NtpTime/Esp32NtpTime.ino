@@ -1,3 +1,6 @@
+// This example is for ESP32 boards, demonstrating how to get
+// time from an NTP server and print it to Serial in a human-readable format.
+
 #include <Arduino.h>
 #include <WiFi.h>
 
