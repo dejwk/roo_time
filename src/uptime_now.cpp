@@ -10,11 +10,10 @@ inline static void __delayMicros(int64_t micros) {
   system_time_delay_micros(micros);
 }
 
-
 #elif defined(ESP32) || defined(ESP8266)
-#include <Arduino.h>
 
 #include "esp_attr.h"
+#include <Arduino.h>
 
 extern "C" {
 int64_t esp_timer_get_time();
@@ -25,7 +24,7 @@ inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
 inline static void __delayMicros(int64_t micros) {
   if (micros < 0) {
     return;
-  } else if (micros < 16384) {
+  } else if (micros < 2000) {
     delayMicroseconds(micros);
   } else {
     delay(micros / 1000);
@@ -33,16 +32,38 @@ inline static void __delayMicros(int64_t micros) {
   }
 }
 
-#elif defined(ARDUINO)
+#elif defined(ESP_PLATFORM)
 
-#include <Arduino.h>
+#include <esp_attr.h>
+#include <rom/ets_sys.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+extern "C" {
+int64_t esp_timer_get_time();
+}
+
+inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
+
+inline static void __delayMicros(int64_t micros) {
+  if (micros < 0) {
+    return;
+  } else if (micros < 2000) {
+    ets_delay_us(micros);
+  } else {
+    vTaskDelay(pdMS_TO_TICKS(micros / 1000));
+    ets_delay_us(micros % 1000);
+  }
+}
+
+#elif defined(ARDUINO)
 
 inline static int64_t __uptime() { return micros(); }
 
 inline static void __delayMicros(int64_t micros) {
   if (micros < 0) {
     return;
-  } else if (micros < 16384) {
+  } else if (micros < 2000) {
     delayMicroseconds(micros);
   } else {
     delay(micros / 1000);
