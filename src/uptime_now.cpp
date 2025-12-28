@@ -58,6 +58,8 @@ inline static void __delayMicros(int64_t micros) {
 
 #elif defined(ARDUINO)
 
+#include <Arduino.h>
+
 inline static int64_t __uptime() { return micros(); }
 
 inline static void __delayMicros(int64_t micros) {
