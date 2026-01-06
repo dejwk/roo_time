@@ -11,9 +11,9 @@ can use this library to keep the raw, UTC time in DS3231, and deal with time zon
 
 ## Compatibility
 
-This library is extensively tested on ESP32 with the Arduino framework. That said, it should also work without changes on other Espressif chips, and with the Espressif framework instead of Arduino. (This library does not have any explicit dependency on Arduino).
+This library is extensively tested on the ESP32 microcontroller family, with the Arduino framework. It also works with the esp-idf framework, and it also works on RP2040-based Raspberry Pi Pico.
 
-The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now(). It should work out-of-the-box on other Arduino platforms, although it wasn't explicitly tested beyond ESP32.
+The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now().
 
 ## Measuring elapsed time
 
