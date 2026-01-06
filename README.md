@@ -1,17 +1,16 @@
 # roo_time
-Arduino-compliant ESP32 (etc.) library for basic management of elapsed time, wall time, and date time with multi-timezone support.
+Microcontroller library for basic management of elapsed time, wall time, and date time with multi-timezone support.
 Provides type safety around durations and different time units, guarding against common programming errors like confusing time
 units, or confusing 'timestamps' with 'durations'.
 
-When used with Espressif chips, uses microsecond precision, and stores the time as int64_t
-(in other words, it will not overflow on you).
+Internally, uses microsecond precision, and stores the time as int64_t (in other words, it will not overflow on you as `millis()` does).
 
 The library is designed to work seamlessly with various RTC device drivers. For example, if you have a DS3231 real-time clock, you
 can use this library to keep the raw, UTC time in DS3231, and deal with time zones and daylight savings conversions on top of that.
 
 ## Compatibility
 
-This library is extensively tested on the ESP32 microcontroller family, with the Arduino framework. It also works with the esp-idf framework, and it also works on RP2040-based Raspberry Pi Pico.
+This library is extensively tested on the ESP32-family microcontrollers. It works both with Arduino and raw esp-idf. It also works on RP2040-based Raspberry Pi Pico.
 
 The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now().
 
