@@ -1,5 +1,8 @@
 # BUILD file for use with https://github.com/dejwk/roo_testing.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "roo_time",
     includes = [
@@ -52,6 +55,7 @@ cc_library(
 
 cc_test(
     name = "roo_time_test",
+    size = "small",
     srcs = [
         "test/roo_time_test.cpp",
     ],
@@ -62,5 +66,4 @@ cc_test(
         ":roo_time",
         "@googletest//:gtest_main",
     ],
-    size = "small",
 )
