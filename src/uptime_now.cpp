@@ -12,14 +12,17 @@ inline static void __delayMicros(int64_t micros) {
 
 #elif defined(ESP32) || defined(ESP8266)
 
-#include "esp_attr.h"
 #include <Arduino.h>
+
+#include "esp_attr.h"
 
 extern "C" {
 int64_t esp_timer_get_time();
 }
 
 inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
+
+#define ROO_TIME_UPTIME_MONOTONE 1
 
 inline static void __delayMicros(int64_t micros) {
   if (micros < 0) {
@@ -35,15 +38,17 @@ inline static void __delayMicros(int64_t micros) {
 #elif defined(ESP_PLATFORM)
 
 #include <esp_attr.h>
-#include <rom/ets_sys.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <rom/ets_sys.h>
 
 extern "C" {
 int64_t esp_timer_get_time();
 }
 
 inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
+
+#define ROO_TIME_UPTIME_MONOTONE 1
 
 inline static void __delayMicros(int64_t micros) {
   if (micros < 0) {
@@ -97,6 +102,16 @@ inline static void __delayMicros(int64_t micros) {
 
 namespace roo_time {
 
+#ifndef ROO_TIME_UPTIME_MONOTONE
+#define ROO_TIME_UPTIME_MONOTONE 0
+#endif
+
+#if ROO_TIME_UPTIME_MONOTONE
+
+const Uptime IRAM_ATTR Uptime::Now() { return Uptime(__uptime()); }
+
+#else  // e.g. on Arduino platforms with 32-bit millisecond resolution.
+
 static int64_t last_reading = 0;
 
 // Offset to make sure the time is monotone.
@@ -112,6 +127,8 @@ const Uptime IRAM_ATTR Uptime::Now() {
   last_reading = now;
   return Uptime(now);
 }
+
+#endif
 
 void IRAM_ATTR Delay(Duration duration) { __delayMicros(duration.inMicros()); }
 void IRAM_ATTR DelayUntil(Uptime deadline) { Delay(deadline - Uptime::Now()); }
