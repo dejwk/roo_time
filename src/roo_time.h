@@ -1,7 +1,7 @@
 #pragma once
 
 #include <inttypes.h>
-#if defined(ESP32) || defined(ESP8266) || defined(__linux__)
+#if defined(ESP_PLATFORM) || defined(__linux__)
 #define CTIME_HDR_DEFINED
 #include <sys/time.h>
 
