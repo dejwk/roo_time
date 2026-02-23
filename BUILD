@@ -34,7 +34,6 @@ cc_library(
     srcs = [
         "src/uptime_now.cpp",
     ],
-    defines = ["ROO_TESTING"],
     visibility = ["//visibility:public"],
     deps = [
         ":core",
