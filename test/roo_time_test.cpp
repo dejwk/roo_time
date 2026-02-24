@@ -205,4 +205,15 @@ TEST(DateTime, FromUnixCest) {
   EXPECT_EQ(1590443851000001, d.wallTime().sinceEpoch().inMicros());
 }
 
+TEST(DateTime, ComparisonSemantics) {
+  DateTime same_instant_different_tz(WallTime(Micros(1590443851000001)),
+                                     TimeZone(Hours(2)));
+  DateTime same_instant_utc(WallTime(Micros(1590443851000001)), timezone::UTC);
+  EXPECT_NE(same_instant_different_tz, same_instant_utc);
+
+  DateTime same_tz_different_instant(WallTime(Micros(1590443851000002)),
+                                     TimeZone(Hours(2)));
+  EXPECT_NE(same_instant_different_tz, same_tz_different_instant);
+}
+
 }  // namespace roo_time

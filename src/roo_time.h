@@ -41,38 +41,48 @@ class Duration {
   static const Duration Max() { return Duration(0x7FFFFFFFFFFFFFFF); }
 
   /// Returns duration in microseconds.
-  constexpr int64_t inMicros() const { return micros_; }
+  [[nodiscard]] constexpr int64_t inMicros() const { return micros_; }
 
   /// Returns duration in milliseconds, rounded toward zero.
-  constexpr int64_t inMillis() const { return inMillisRoundedDown(); }
+  [[nodiscard]] constexpr int64_t inMillis() const {
+    return inMillisRoundedDown();
+  }
 
   /// Returns duration in seconds, rounded toward zero.
-  constexpr int64_t inSeconds() const { return inSecondsRoundedDown(); }
+  [[nodiscard]] constexpr int64_t inSeconds() const {
+    return inSecondsRoundedDown();
+  }
 
   /// Returns duration in minutes, rounded toward zero.
-  constexpr int64_t inMinutes() const { return inMinutesRoundedDown(); }
+  [[nodiscard]] constexpr int64_t inMinutes() const {
+    return inMinutesRoundedDown();
+  }
 
   /// Returns duration in hours, rounded toward zero.
-  constexpr int64_t inHours() const { return inHoursRoundedDown(); }
+  [[nodiscard]] constexpr int64_t inHours() const { return inHoursRoundedDown(); }
 
   /// Returns duration in milliseconds, rounded toward zero.
-  constexpr int64_t inMillisRoundedDown() const { return micros_ / 1000LL; }
+  [[nodiscard]] constexpr int64_t inMillisRoundedDown() const {
+    return micros_ / 1000LL;
+  }
 
   /// Returns duration in seconds, rounded toward zero.
-  constexpr int64_t inSecondsRoundedDown() const { return micros_ / 1000000LL; }
+  [[nodiscard]] constexpr int64_t inSecondsRoundedDown() const {
+    return micros_ / 1000000LL;
+  }
 
   /// Returns duration in minutes, rounded toward zero.
-  constexpr int64_t inMinutesRoundedDown() const {
+  [[nodiscard]] constexpr int64_t inMinutesRoundedDown() const {
     return micros_ / 60000000LL;
   }
 
   /// Returns duration in hours, rounded toward zero.
-  constexpr int64_t inHoursRoundedDown() const {
+  [[nodiscard]] constexpr int64_t inHoursRoundedDown() const {
     return micros_ / 3600000000LL;
   }
 
   /// Returns duration in milliseconds, rounded away from zero.
-  constexpr int64_t inMillisRoundedUp() const {
+  [[nodiscard]] constexpr int64_t inMillisRoundedUp() const {
     int64_t q = micros_ / 1000LL;
     int64_t r = micros_ % 1000LL;
     if (r == 0) return q;
@@ -80,7 +90,7 @@ class Duration {
   }
 
   /// Returns duration in seconds, rounded away from zero.
-  constexpr int64_t inSecondsRoundedUp() const {
+  [[nodiscard]] constexpr int64_t inSecondsRoundedUp() const {
     int64_t q = micros_ / 1000000LL;
     int64_t r = micros_ % 1000000LL;
     if (r == 0) return q;
@@ -88,7 +98,7 @@ class Duration {
   }
 
   /// Returns duration in minutes, rounded away from zero.
-  constexpr int64_t inMinutesRoundedUp() const {
+  [[nodiscard]] constexpr int64_t inMinutesRoundedUp() const {
     int64_t q = micros_ / 60000000LL;
     int64_t r = micros_ % 60000000LL;
     if (r == 0) return q;
@@ -96,7 +106,7 @@ class Duration {
   }
 
   /// Returns duration in hours, rounded away from zero.
-  constexpr int64_t inHoursRoundedUp() const {
+  [[nodiscard]] constexpr int64_t inHoursRoundedUp() const {
     int64_t q = micros_ / 3600000000LL;
     int64_t r = micros_ % 3600000000LL;
     if (r == 0) return q;
@@ -105,7 +115,7 @@ class Duration {
 
   /// Returns duration in milliseconds, rounded to nearest (ties away from
   /// zero).
-  constexpr int64_t inMillisRoundedNearest() const {
+  [[nodiscard]] constexpr int64_t inMillisRoundedNearest() const {
     int64_t q = micros_ / 1000LL;
     int64_t r = micros_ % 1000LL;
     int64_t ar = r < 0 ? -r : r;
@@ -114,7 +124,7 @@ class Duration {
   }
 
   /// Returns duration in seconds, rounded to nearest (ties away from zero).
-  constexpr int64_t inSecondsRoundedNearest() const {
+  [[nodiscard]] constexpr int64_t inSecondsRoundedNearest() const {
     int64_t q = micros_ / 1000000LL;
     int64_t r = micros_ % 1000000LL;
     int64_t ar = r < 0 ? -r : r;
@@ -123,7 +133,7 @@ class Duration {
   }
 
   /// Returns duration in minutes, rounded to nearest (ties away from zero).
-  constexpr int64_t inMinutesRoundedNearest() const {
+  [[nodiscard]] constexpr int64_t inMinutesRoundedNearest() const {
     int64_t q = micros_ / 60000000LL;
     int64_t r = micros_ % 60000000LL;
     int64_t ar = r < 0 ? -r : r;
@@ -132,7 +142,7 @@ class Duration {
   }
 
   /// Returns duration in hours, rounded to nearest (ties away from zero).
-  constexpr int64_t inHoursRoundedNearest() const {
+  [[nodiscard]] constexpr int64_t inHoursRoundedNearest() const {
     int64_t q = micros_ / 3600000000LL;
     int64_t r = micros_ % 3600000000LL;
     int64_t ar = r < 0 ? -r : r;
@@ -141,16 +151,22 @@ class Duration {
   }
 
   /// Returns duration in milliseconds as floating-point value.
-  constexpr float inMillisFloat() const { return micros_ / 1000.0; }
+  [[nodiscard]] constexpr float inMillisFloat() const { return micros_ / 1000.0; }
 
   /// Returns duration in seconds as floating-point value.
-  constexpr float inSecondsFloat() const { return micros_ / 1000000.0; }
+  [[nodiscard]] constexpr float inSecondsFloat() const {
+    return micros_ / 1000000.0;
+  }
 
   /// Returns duration in minutes as floating-point value.
-  constexpr float inMinutesFloat() const { return micros_ / 60000000.0; }
+  [[nodiscard]] constexpr float inMinutesFloat() const {
+    return micros_ / 60000000.0;
+  }
 
   /// Returns duration in hours as floating-point value.
-  constexpr float inHoursFloat() const { return micros_ / 3600000000.0; }
+  [[nodiscard]] constexpr float inHoursFloat() const {
+    return micros_ / 3600000000.0;
+  }
 
   /// Adds another duration to this one.
   Duration& operator+=(const Duration& other) {
@@ -458,19 +474,19 @@ class Uptime {
   }
 
   /// Returns uptime in microseconds.
-  int64_t inMicros() const { return micros_; }
+  [[nodiscard]] int64_t inMicros() const { return micros_; }
 
   /// Returns uptime in milliseconds.
-  int64_t inMillis() const { return micros_ / 1000LL; }
+  [[nodiscard]] int64_t inMillis() const { return micros_ / 1000LL; }
 
   /// Returns uptime in seconds.
-  int64_t inSeconds() const { return micros_ / 1000000LL; }
+  [[nodiscard]] int64_t inSeconds() const { return micros_ / 1000000LL; }
 
   /// Returns uptime in minutes.
-  int64_t inMinutes() const { return micros_ / 60000000LL; }
+  [[nodiscard]] int64_t inMinutes() const { return micros_ / 60000000LL; }
 
   /// Returns uptime in hours.
-  int64_t inHours() const { return micros_ / 3600000000LL; }
+  [[nodiscard]] int64_t inHours() const { return micros_ / 3600000000LL; }
 
   // Duration HowLongAgo() const {
   //   return Duration(Now().ToMicros() - this->ToMicros);
@@ -571,7 +587,7 @@ class WallTime {
   explicit WallTime(Duration since_epoch) : since_epoch_(since_epoch) {}
 
   /// Returns elapsed duration since Unix epoch.
-  Duration sinceEpoch() const { return since_epoch_; }
+  [[nodiscard]] Duration sinceEpoch() const { return since_epoch_; }
 
   /// Adds duration to this wall time.
   WallTime& operator+=(const Duration& i) {
@@ -676,7 +692,9 @@ class TimeZone {
       : offset_minutes_(offset.inMinutes()) {}
 
   /// Returns UTC offset of this time zone.
-  constexpr Duration offset() const { return Minutes(offset_minutes_); }
+  [[nodiscard]] constexpr Duration offset() const {
+    return Minutes(offset_minutes_);
+  }
 
  private:
   int16_t offset_minutes_;
@@ -743,37 +761,37 @@ class DateTime {
   DateTime(WallTime wallTime, TimeZone tz);
 
   /// Returns `WallTime` corresponding to this `DateTime`.
-  WallTime wallTime() const { return walltime_; }
+  [[nodiscard]] WallTime wallTime() const { return walltime_; }
 
   /// Returns time zone of this `DateTime`.
-  TimeZone timeZone() const { return tz_; }
+  [[nodiscard]] TimeZone timeZone() const { return tz_; }
 
   /// Returns four-digit year.
-  int16_t year() const { return year_; }
+  [[nodiscard]] int16_t year() const { return year_; }
 
   /// Returns month in [1, 12].
-  Month month() const { return (Month)month_; }
+  [[nodiscard]] Month month() const { return (Month)month_; }
 
   /// Returns day of month in valid range.
-  uint8_t day() const { return day_; }
+  [[nodiscard]] uint8_t day() const { return day_; }
 
   /// Returns hour in [0, 23].
-  uint8_t hour() const { return hour_; }
+  [[nodiscard]] uint8_t hour() const { return hour_; }
 
   /// Returns minute in [0, 59].
-  uint8_t minute() const { return minute_; }
+  [[nodiscard]] uint8_t minute() const { return minute_; }
 
   /// Returns second in [0, 59].
-  uint8_t second() const { return second_; }
+  [[nodiscard]] uint8_t second() const { return second_; }
 
   /// Returns microsecond fraction in [0, 999999].
-  uint32_t micros() const { return micros_; }
+  [[nodiscard]] uint32_t micros() const { return micros_; }
 
   /// Returns day of week in this time zone.
-  DayOfWeek dayOfWeek() const { return day_of_week_; }
+  [[nodiscard]] DayOfWeek dayOfWeek() const { return day_of_week_; }
 
   /// Returns day of year in [1, 366].
-  uint16_t dayOfYear() const { return day_of_year_; }
+  [[nodiscard]] uint16_t dayOfYear() const { return day_of_year_; }
 
 #ifdef CTIME_HDR_DEFINED
   /// Constructs `DateTime` from C `tm` structure.
@@ -817,7 +835,7 @@ inline bool operator==(const DateTime& a, const DateTime& b) {
 
 /// Returns true if date-times differ in instant or time-zone offset.
 inline bool operator!=(const DateTime& a, const DateTime& b) {
-  return a.wallTime() != b.wallTime() &&
+  return a.wallTime() != b.wallTime() ||
          a.timeZone().offset() != b.timeZone().offset();
 }
 
