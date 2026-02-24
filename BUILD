@@ -34,6 +34,9 @@ cc_library(
     srcs = [
         "src/uptime_now.cpp",
     ],
+    # The behavior of default uptime depends on ROO_TESTING being defined, so
+    # we make sure it is so.
+    defines = ["ROO_TESTING"],
     visibility = ["//visibility:public"],
     deps = [
         ":core",
