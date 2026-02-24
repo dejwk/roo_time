@@ -168,7 +168,7 @@ TEST(WallTime, Comparison) {
 TEST(DateTime, FromDateUTC) {
   DateTime d(2020, 05, 24, timezone::UTC);
   EXPECT_EQ(2020, d.year());
-  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(24, d.day());
   EXPECT_EQ(kSunday, d.dayOfWeek());
   EXPECT_EQ(145, d.dayOfYear());
@@ -178,7 +178,7 @@ TEST(DateTime, FromDateUTC) {
 TEST(DateTime, FromDateCest) {
   DateTime d(2020, 05, 24, TimeZone(Hours(2)));
   EXPECT_EQ(2020, d.year());
-  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(24, d.day());
   EXPECT_EQ(kSunday, d.dayOfWeek());
   EXPECT_EQ(145, d.dayOfYear());
@@ -188,7 +188,7 @@ TEST(DateTime, FromDateCest) {
 TEST(DateTime, FromDateTimeCest) {
   DateTime d(2020, 05, 25, 23, 57, 31, 1, TimeZone(Hours(2)));
   EXPECT_EQ(2020, d.year());
-  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(25, d.day());
   EXPECT_EQ(kMonday, d.dayOfWeek());
   EXPECT_EQ(146, d.dayOfYear());
@@ -198,7 +198,7 @@ TEST(DateTime, FromDateTimeCest) {
 TEST(DateTime, FromUnixCest) {
   DateTime d(WallTime(Micros(1590443851000001)), TimeZone(Hours(2)));
   EXPECT_EQ(2020, d.year());
-  EXPECT_EQ(5, d.month());
+  EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(25, d.day());
   EXPECT_EQ(kMonday, d.dayOfWeek());
   EXPECT_EQ(146, d.dayOfYear());
