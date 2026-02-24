@@ -1,5 +1,9 @@
 #pragma once
 
+/// Umbrella header for the roo_time module.
+///
+/// Provides duration, uptime, and wall-time abstractions.
+
 #include <inttypes.h>
 #if defined(ESP_PLATFORM) || defined(__linux__)
 #define CTIME_HDR_DEFINED
@@ -8,15 +12,16 @@
 #include <ctime>
 #endif
 
-// Convenience classes for handling delays, measure elapsed time, etc.,
-// providing safety against common errors like confusing time units
-// or confusing 'timestamps' with 'durations'.
+/// Convenience classes for handling delays and elapsed time measurement.
+///
+/// Helps avoid common mistakes such as mixing time units or confusing
+/// timestamps with durations.
 
 namespace roo_time {
 
-// Represents an 'amount of time', e.g. e.g. 5s, 10 min, etc.
-// Internally represented with microsecond precision and 64-bit range.
-// Should be passed by value.
+/// Represents an amount of time (e.g. 5s, 10min).
+///
+/// Stored with microsecond precision and 64-bit range. Pass by value.
 class Duration {
  public:
   struct Components {
@@ -98,10 +103,10 @@ class Duration {
     return *this;
   }
 
-  // Breaks the duration into components (days, hours, minutes, etc.)
+  /// Breaks duration into components (days, hours, minutes, ...).
   Components toComponents();
 
-  // Reconstitutes the duration from the components.
+  /// Reconstructs duration from components.
   static Duration FromComponents(const Components& components);
 
  private:
@@ -127,7 +132,7 @@ class Duration {
   int64_t micros_;
 };
 
-// For backwards compatibiliity. Prefer 'Duration' in the new code.
+/// Backwards compatibility alias. Prefer `Duration` in new code.
 using Interval = Duration;
 
 inline constexpr Duration Micros(long long micros) { return Duration(micros); }
@@ -332,9 +337,10 @@ inline Duration operator*(int a, const Duration& b) {
   return Micros(a * b.inMicros());
 }
 
-// Represents an 'instant in time', relatively to the start time of the
-// process. Internally represented with microsecond precition and 64-bit range.
-// May not count time while the board is in sleep mode. POD; pass it by value.
+/// Represents an instant relative to process/boot start time.
+///
+/// Stored with microsecond precision and 64-bit range. May not include sleep
+/// time on some platforms.
 class Uptime {
  public:
   static const Uptime Now();
@@ -426,17 +432,20 @@ inline Uptime operator+(const Duration& i, const Uptime& u) {
   return Uptime(u.inMicros() + i.inMicros());
 }
 
-// Delays execution for the specified duration. Does nothing if the duration is
-// negative.
+/// Delays execution for `duration`.
+///
+/// Negative durations are treated as no-op.
 void Delay(Duration duration);
 
-// Delays execution until the specified deadline. Does nothing if the
-// deadline has already passed.
+/// Delays execution until `deadline`.
+///
+/// If deadline is in the past, returns immediately.
 void DelayUntil(Uptime deadline);
 
-// Represents an absolute 'instant in time'. Internally represented with
-// microsecond precision and 64-bit range. Does not account for leap seconds.
-// Lightweight (8 bytes); pass it by value.
+/// Represents absolute wall time since Unix epoch.
+///
+/// Stored with microsecond precision and 64-bit range. Does not account for
+/// leap seconds.
 class WallTime {
  public:
   WallTime() {}
@@ -502,7 +511,7 @@ inline WallTime operator+(const Duration& i, const WallTime& t) {
   return WallTime(t.sinceEpoch() + i);
 }
 
-// Abstract interface for a provider of current wall time.
+/// Abstract interface for obtaining current wall time.
 class WallTimeClock {
  public:
   virtual ~WallTimeClock() = default;
@@ -524,11 +533,11 @@ class TimeZone {
  public:
   TimeZone() : offset_minutes_(0) {}
 
-  // Creates a time zone with the given UTC offset.
+  /// Creates time zone with specified UTC offset.
   constexpr explicit TimeZone(Duration offset)
       : offset_minutes_(offset.inMinutes()) {}
 
-  // Returns the UTC offset of this timezone.
+  /// Returns UTC offset of this time zone.
   constexpr Duration offset() const { return Minutes(offset_minutes_); }
 
  private:
@@ -564,59 +573,57 @@ enum Month {
   kDecember = 12
 };
 
-// Represents an absolute 'instant in time', represented as a date and time in
-// a specific timezone. Does not account for leap seconds.
+/// Represents wall time decomposed into date/time in a specific time zone.
+///
+/// Does not account for leap seconds.
 class DateTime {
  public:
-  // Constructs a new DateTime, representing 'now' in UTC.
+  /// Constructs `DateTime` representing current time in UTC.
   DateTime() : DateTime(WallTime(), timezone::UTC) {}
 
-  // Constructs a new DateTime, representing the midnight of the sepcified
-  // day, in the specified time zone.
-  //
-  // year: 4-digit.
-  // month: 1..12
-  // day: 1..max_day
-  //
+  /// Constructs `DateTime` at midnight of a date in the specified time zone.
+  ///
+  /// @param year Four-digit year.
+  /// @param month Month in [1, 12].
+  /// @param day Day in [1, max_day_of_month].
   DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz);
 
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
            uint8_t minute, uint8_t second, uint32_t micros, TimeZone tz);
 
-  // Constructs a new DateTime, representing the specified WallTime
-  // in the specified time zone.
+  /// Constructs `DateTime` for `wallTime` in time zone `tz`.
   DateTime(WallTime wallTime, TimeZone tz);
 
-  // Returns WallTime corresponding to this DateTime.
+  /// Returns `WallTime` corresponding to this `DateTime`.
   WallTime wallTime() const { return walltime_; }
 
-  // Returns the timezone of this DateTime.
+  /// Returns time zone of this `DateTime`.
   TimeZone timeZone() const { return tz_; }
 
-  // 4-digit.
+  /// Returns four-digit year.
   int16_t year() const { return year_; }
 
-  // [1..12]
+  /// Returns month in [1, 12].
   Month month() const { return (Month)month_; }
 
-  // [1..max_day]
+  /// Returns day of month in valid range.
   uint8_t day() const { return day_; }
 
-  // [0..23]
+  /// Returns hour in [0, 23].
   uint8_t hour() const { return hour_; }
 
-  // [0..59]
+  /// Returns minute in [0, 59].
   uint8_t minute() const { return minute_; }
 
-  // [0..59]
+  /// Returns second in [0, 59].
   uint8_t second() const { return second_; }
 
-  // [0..999999]
+  /// Returns microsecond fraction in [0, 999999].
   uint32_t micros() const { return micros_; }
 
   DayOfWeek dayOfWeek() const { return day_of_week_; }
 
-  // [1..366]
+  /// Returns day of year in [1, 366].
   uint16_t dayOfYear() const { return day_of_year_; }
 
 #ifdef CTIME_HDR_DEFINED
@@ -665,7 +672,7 @@ inline bool operator!=(const DateTime& a, const DateTime& b) {
 
 #if defined(__linux__)
 
-// Convenience printers to aid testing.
+/// Convenience printers to aid testing.
 #include <iomanip>
 #include <ostream>
 
