@@ -48,6 +48,45 @@ TEST(Duration, Comparison) {
   EXPECT_FALSE(Micros(169) <= Micros(150));
 }
 
+TEST(Duration, RoundingSignBehavior) {
+  Duration positive = Micros(1501);
+  EXPECT_EQ(1, positive.inMillisRoundedDown());
+  EXPECT_EQ(2, positive.inMillisRoundedUp());
+
+  Duration negative = Micros(-1501);
+  EXPECT_EQ(-1, negative.inMillisRoundedDown());
+  EXPECT_EQ(-2, negative.inMillisRoundedUp());
+
+  EXPECT_EQ(-1, Micros(-1000001).inSecondsRoundedDown());
+  EXPECT_EQ(-2, Micros(-1000001).inSecondsRoundedUp());
+
+  EXPECT_EQ(-1, Micros(-60000001).inMinutesRoundedDown());
+  EXPECT_EQ(-2, Micros(-60000001).inMinutesRoundedUp());
+
+  EXPECT_EQ(-1, Micros(-3600000001LL).inHoursRoundedDown());
+  EXPECT_EQ(-2, Micros(-3600000001LL).inHoursRoundedUp());
+
+  EXPECT_EQ(0, Micros(499).inMillisRoundedNearest());
+  EXPECT_EQ(1, Micros(500).inMillisRoundedNearest());
+  EXPECT_EQ(1, Micros(501).inMillisRoundedNearest());
+  EXPECT_EQ(1, Micros(1499).inMillisRoundedNearest());
+  EXPECT_EQ(2, Micros(1501).inMillisRoundedNearest());
+  EXPECT_EQ(0, Micros(-499).inMillisRoundedNearest());
+  EXPECT_EQ(-1, Micros(-500).inMillisRoundedNearest());
+  EXPECT_EQ(-1, Micros(-501).inMillisRoundedNearest());
+  EXPECT_EQ(-1, Micros(-1499).inMillisRoundedNearest());
+  EXPECT_EQ(-2, Micros(-1501).inMillisRoundedNearest());
+
+  EXPECT_EQ(1, Micros(500000).inSecondsRoundedNearest());
+  EXPECT_EQ(-1, Micros(-500000).inSecondsRoundedNearest());
+
+  EXPECT_EQ(1, Micros(30000000).inMinutesRoundedNearest());
+  EXPECT_EQ(-1, Micros(-30000000).inMinutesRoundedNearest());
+
+  EXPECT_EQ(1, Micros(1800000000LL).inHoursRoundedNearest());
+  EXPECT_EQ(-1, Micros(-1800000000LL).inHoursRoundedNearest());
+}
+
 TEST(Uptime, NarrowingConversions) {
   Uptime a = Uptime::Start() + Micros(12345678901);
   EXPECT_EQ(12345678901, a.inMicros());

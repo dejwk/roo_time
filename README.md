@@ -165,6 +165,20 @@ Uptime::Now() + 20;           // ERROR: 20 of what?
 Uptime::Now() + Seconds(20);  // Now OK.
 ```
 
+## Rounding semantics
+
+`Duration` narrowing conversions expose three rounding modes:
+
+- `inXxx()` and `inXxxRoundedDown()` round **toward zero**.
+- `inXxxRoundedUp()` rounds **away from zero**.
+- `inXxxRoundedNearest()` rounds to nearest, with ties (exact half) **away from zero**.
+
+Examples for milliseconds:
+
+- `Micros(1501).inMillisRoundedDown()` is `1`, `Micros(-1501).inMillisRoundedDown()` is `-1`.
+- `Micros(1501).inMillisRoundedUp()` is `2`, `Micros(-1501).inMillisRoundedUp()` is `-2`.
+- `Micros(500).inMillisRoundedNearest()` is `1`, `Micros(-500).inMillisRoundedNearest()` is `-1`.
+
 ## Performance
 
 The Uptime and WallTime classes are trivial wrappers around int64.
