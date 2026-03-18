@@ -10,7 +10,7 @@ inline static void __delayMicros(int64_t micros) {
   system_time_delay_micros(micros);
 }
 
-#elif defined(ESP32) || defined(ESP8266)
+#elif defined(ESP32)
 
 #include <Arduino.h>
 
