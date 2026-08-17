@@ -53,7 +53,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":core",
-    ],
+    ] + select({
+        "@roo_testing//roo_testing/platforms:is_roo_testing": [
+            "@roo_testing//roo_testing/system:timer",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
