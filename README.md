@@ -25,8 +25,8 @@ DelayUntil(deadline);
 ```
 
 The core types store signed 64-bit microseconds and their value operations use no
-heap allocation. The primary target is ESP32 with Arduino or ESP-IDF; RP2040 via
-Arduino, native Linux, and host emulation are also supported. Generic Arduino
+heap allocation. The primary target is ESP32 with Arduino or ESP-IDF; Pico SDK and compatible
+RP2040 Arduino cores, native Linux, and host emulation are also supported. Generic Arduino
 requires regular clock sampling and serialized calls; see
 [clock backends](#clock-backends) for platform-specific behavior.
 
@@ -204,9 +204,10 @@ The following details define behavior at platform and value boundaries.
 
 ### Clock backends
 
-The primary microcontroller target is ESP32, with Arduino or ESP-IDF. RP2040 is
-supported through Arduino's generic `micros()` backend, with the sampling and
-serialization requirements below. There is no standalone Pico SDK backend.
+The primary microcontroller target is ESP32, with Arduino or ESP-IDF. Pico SDK device
+builds and RP2040 Arduino cores exposing `pico/time.h` use the native Pico timer.
+Other Arduino cores retain the generic `micros()` backend and its sampling and
+serialization requirements.
 Native Linux and roo_testing backends support host use and emulation.
 
 Both uptime acquisition and blocking delays are platform-dependent. `SystemClock`
@@ -217,7 +218,8 @@ Arduino metadata's `architectures=*` does not guarantee every core or host OS.
 | Backend | Uptime origin and resolution | Sleep and rollover behavior |
 | --- | --- | --- |
 | ESP32 Arduino / ESP-IDF | `esp_timer_get_time()`, microseconds since timer initialization during startup | Native 64-bit counter; light sleep is included after wakeup; deep sleep restarts the application and counter. |
-| Generic Arduino, including RP2040 | Extended low 32 bits of `micros()`; resolution comes from the Arduino core | Call before the first rollover and at intervals strictly shorter than 2^32 microseconds (about 71.6 minutes). Whether sleep is counted depends on the core. |
+| Pico SDK / SDK-backed RP2040 Arduino | Native `time_us_64()`, microseconds since the hardware timer origin | No software wrap extension or periodic sampling requirement. Sleep accounting requires the hardware timer to remain running. |
+| Generic Arduino | Extended low 32 bits of `micros()`; resolution comes from the Arduino core | Call before the first rollover and at intervals strictly shorter than 2^32 microseconds (about 71.6 minutes). Whether sleep is counted depends on the core. |
 | Native Linux | `steady_clock`, relative to the first uptime access; converted to whole microseconds | Independent of wall-clock adjustments. Suspend accounting follows the host steady clock; this is not a boot-time or persisted clock. |
 | roo_testing | Emulated system uptime | Time advancement and host synchronization follow the emulator's configuration. |
 
@@ -230,7 +232,7 @@ The generic Arduino extension can recover one counter wrap between samples. It
 cannot reconstruct missed full periods, including periods before its first call.
 All accesses to its shared clock state must be serialized by the application,
 including accesses inside `Delay` and `DelayUntil`; do not call it concurrently
-from tasks, cores, or an ISR. Native ESP32 and Linux clock acquisition do not use
+from tasks, cores, or an ISR. Native ESP32, Pico, and Linux clock acquisition do not use
 that shared extension state. ISR use on ESP32 additionally requires the platform
 API and all called code to be available in the interrupt's execution context.
 
@@ -238,6 +240,13 @@ Value objects are not atomic. Concurrent reads of an unchanged object are fine;
 shared mutation requires synchronization. In particular, `Uptime`'s copy and
 assignment operations accepting `volatile` sources do not make a 64-bit access
 atomic on a smaller MCU or establish synchronization between threads.
+
+For standalone Pico SDK builds, compile `src/roo_time.cpp` and
+`src/uptime_now.cpp`, add `src` to the include path, and link `pico_time`.
+The SDK supplies `PICO_ON_DEVICE`; compatible RP2040 Arduino cores are detected
+through `ARDUINO_ARCH_RP2040` and availability of `pico/time.h`. Pico waits use
+`sleep_us`, allowing the SDK to manage lower-power waits; its normal interrupt
+and timer configuration requirements apply.
 
 ### Value ranges and contracts
 
@@ -281,7 +290,7 @@ rechecks elapsed uptime after platform waits. ESP32 waits are bounded by the
 largest finite RTOS tick delay, with conversion performed in 64 bits. Generic
 Arduino waits are capped at half the 32-bit microsecond counter period (about
 35.8 minutes), leaving the other half as scheduling margin; the actual interval
-between clock samples must still remain below one full period. Linux and
+between clock samples must still remain below one full period. Pico, Linux, and
 roo_testing pass the full remaining duration to their delay APIs. `DelayUntil`
 returns immediately for a deadline at or before the current uptime; otherwise it
 waits until that uptime deadline has been reached or passed.

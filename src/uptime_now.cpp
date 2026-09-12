@@ -1,5 +1,11 @@
 #include "roo_time.h"
 
+#if defined(ARDUINO_ARCH_RP2040) && defined(__has_include)
+#if __has_include(<pico/time.h>)
+#define ROO_TIME_PICO_ARDUINO 1
+#endif
+#endif
+
 #if defined(ROO_TESTING)
 
 #include "roo_testing/system/timer.h"
@@ -52,6 +58,21 @@ inline static void __delayMicros(int64_t micros) {
   } else {
     vTaskDelay(ticks);
   }
+}
+
+#elif (defined(PICO_ON_DEVICE) && PICO_ON_DEVICE) || \
+    defined(ROO_TIME_PICO_ARDUINO)
+
+#include <pico/time.h>
+
+#define ROO_TIME_UPTIME_MONOTONE 1
+
+inline static int64_t __uptime() {
+  return static_cast<int64_t>(time_us_64());
+}
+
+inline static void __delayMicros(int64_t micros) {
+  sleep_us(static_cast<uint64_t>(micros));
 }
 
 #elif defined(ARDUINO)

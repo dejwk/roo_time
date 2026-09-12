@@ -123,3 +123,18 @@ cc_test(
     srcs = ["test/compact_time_test.cpp"],
     deps = [":roo_time", "@googletest//:gtest_main"],
 )
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/pico_time_test.cpp", "test/stubs/pico/time.h"],
+        copts = copts,
+        includes = ["test/stubs"],
+        deps = [":uptime_test_source", "@googletest//:gtest_main"],
+    )
+    for name, copts in [
+        ("pico_time_test", []),
+        ("pico_arduino_time_test", ["-DTEST_PICO_ARDUINO"]),
+    ]
+]
