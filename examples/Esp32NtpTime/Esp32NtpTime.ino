@@ -48,7 +48,7 @@ using namespace roo_time;
 
 const char* ntpServer = "pool.ntp.org";
 
-// 2 hours behind UTC.
+// Fixed offset: 2 hours ahead of UTC.
 const TimeZone kLocalTz(Hours(2));
 
 SystemClock my_clock;

@@ -27,7 +27,7 @@ void loop() {
   Uptime now = Uptime::Now();  // Carries microseconds since program start.
   foo(now.inMillis());         // Conveniently convert to various time units, as needed.
   now += Hours(2);             // Basic arithmetics and convenience construction.
-  if (now > Hours(2))          // Compile error: don't conflate time instant with duration.
+  // if (now > Hours(2))       // Compile error: don't conflate time instant with duration.
   
   // Measuring elapsed time
   Uptime start = Uptime::Now();
@@ -76,16 +76,16 @@ conversion functions described below. (Also, see the [roo_time_ds3231](http://gi
 Once you have an implementation of the 'WallTimeClock', you can use it like this:
 
 ```cpp
-MyClock clock;  // Or, SystemClock, or Ds3231Clock, etc.
+MyClock my_clock;  // Or, SystemClock, or Ds3231Clock, etc.
 
 void setup() {
-  clock.begin();
+  my_clock.begin();
 }
 
 void loop() {
-  WallTime now = clock.now();
+  WallTime now = my_clock.now();
   WallTime tomorrow = now + Hours(24);
-  int64_t seconds_since_epoch = now.sinceEpoch().toSeconds();
+  int64_t seconds_since_epoch = now.sinceEpoch().inSeconds();
   // ...
 }
 ```
@@ -100,10 +100,10 @@ DateTime independence_day(2021, 7, 4, TimeZone(Hours(-7)));
 WallTime wt = independence_day.wallTime();
 
 // Get current time in a specified timezone.
-DateTime now(clock.now(), TimeZone(Hours(2));
+DateTime now(my_clock.now(), TimeZone(Hours(2)));
 foo(now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
 
-if (now.dayOfWeek() == FRIDAY) { /* I like Fridays! */ }
+if (now.dayOfWeek() == kFriday) { /* I like Fridays! */ }
 
 ```
 
@@ -112,7 +112,7 @@ if (now.dayOfWeek() == FRIDAY) { /* I like Fridays! */ }
 Timezone is just a type-safe duration wrapper:
 
 ```cpp
-static const Timezone CEST(Hours(2)); 
+static const TimeZone CEST(Hours(2));
 ```
 
 Daylight saving rules are not explicitly supported, because they are very complicated and change
@@ -134,7 +134,7 @@ Duration utcOffset(WallTime t) {
   DayOfWeek oct31dow = oct31.dayOfWeek();
   WallTime summerEnd = oct31.wallTime() - Hours(24 * oct31dow) + Hours(1);
   // Now, see if the specified time point is within the summer time range.
-  return t >= summerStart && t < summerEnd ? Hours(2) : Hours(3);
+  return t >= summerStart && t < summerEnd ? Hours(2) : Hours(1);
 }
 
 class DSTWatch {
@@ -158,8 +158,8 @@ mixing up uptime (i.e. the time since the device is running) with wall time (i.e
 since Epoch), and mixing up durations with time points:
 
 ```cpp
-clock.now() - Uptime::Now();  // ERROR: can't mix up wall time and uptime.
-clock.now() - (Uptime::Now() - Uptime::Start());  // Now OK; explicitly converted to an duration.
+my_clock.now() - Uptime::Now();  // ERROR: can't mix up wall time and uptime.
+my_clock.now() - (Uptime::Now() - Uptime::Start());  // Now OK; explicitly converted to an duration.
                                                   // Returns the wall time of last restart.
 Uptime::Now() + 20;           // ERROR: 20 of what?
 Uptime::Now() + Seconds(20);  // Now OK.
