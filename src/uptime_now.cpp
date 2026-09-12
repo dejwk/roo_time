@@ -85,10 +85,13 @@ inline static void __delayMicros(int64_t micros) {
 #include <chrono>
 #include <thread>
 
+#define ROO_TIME_UPTIME_MONOTONE 1
+
 inline static int64_t __uptime() {
-  auto now = std::chrono::high_resolution_clock::now();
+  static const auto origin = std::chrono::steady_clock::now();
+  auto now = std::chrono::steady_clock::now();
   return std::chrono::duration_cast<std::chrono::microseconds>(
-             now.time_since_epoch())
+             now - origin)
       .count();
 }
 

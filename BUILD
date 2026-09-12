@@ -91,3 +91,10 @@ cc_test(
     includes = ["test/stubs"],
     deps = [":uptime_test_source", "@googletest//:gtest_main"],
 )
+
+cc_test(
+    name = "linux_uptime_test",
+    size = "small",
+    srcs = ["test/linux_uptime_test.cpp"],
+    deps = [":uptime_test_source", "@googletest//:gtest_main"],
+)
