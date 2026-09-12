@@ -98,3 +98,19 @@ cc_test(
     srcs = ["test/linux_uptime_test.cpp"],
     deps = [":uptime_test_source", "@googletest//:gtest_main"],
 )
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/delay_test.cpp"] + glob(["test/stubs/**/*.h"]),
+        copts = ["-D" + backend],
+        includes = ["test/stubs"],
+        deps = [":uptime_test_source", "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("idf_delay_test", "TEST_IDF_DELAY"),
+        ("arduino_esp32_delay_test", "TEST_ARDUINO_ESP32_DELAY"),
+        ("emulated_delay_test", "TEST_EMULATED_DELAY"),
+    ]
+]

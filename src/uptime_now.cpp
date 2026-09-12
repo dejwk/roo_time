@@ -131,7 +131,26 @@ const Uptime IRAM_ATTR Uptime::Now() {
 
 #endif
 
-void IRAM_ATTR Delay(Duration duration) { __delayMicros(duration.inMicros()); }
-void IRAM_ATTR DelayUntil(Uptime deadline) { Delay(deadline - Uptime::Now()); }
+void IRAM_ATTR Delay(Duration duration) {
+  if (duration.inMicros() <= 0) return;
+  const Uptime start = Uptime::Now();
+  Duration remaining = duration;
+  for (;;) {
+    // Bound platform argument widths and sample wrapping counters frequently.
+    const int64_t chunk = remaining.inMicros() < 1000000
+                              ? remaining.inMicros() : 1000000;
+    __delayMicros(chunk);
+    const Duration elapsed = Uptime::Now() - start;
+    if (elapsed >= duration) return;
+    remaining = duration - elapsed;
+  }
+}
+
+void IRAM_ATTR DelayUntil(Uptime deadline) {
+  const Uptime now = Uptime::Now();
+  // Compare before subtracting, so even the most negative deadline is a no-op.
+  if (deadline <= now) return;
+  Delay(deadline - now);
+}
 
 }  // namespace roo_time
