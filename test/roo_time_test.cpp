@@ -1,3 +1,5 @@
+#include <limits>
+
 #include "gtest/gtest.h"
 
 #include "roo_time.h"
@@ -217,3 +219,27 @@ TEST(DateTime, ComparisonSemantics) {
 }
 
 }  // namespace roo_time
+
+TEST(DurationComponents, LargeValuesAndLimits) {
+  using namespace roo_time;
+  for (int64_t days : {0LL, 24855LL, 24856LL, 30000LL, 67108863LL}) {
+    for (int sign : {-1, 1}) {
+      auto duration = sign * (Hours(days * 24) + Hours(23) + Minutes(59) +
+                              Seconds(59) + Micros(999999));
+      EXPECT_EQ(duration, Duration::FromComponents(duration.toComponents()));
+    }
+  }
+  auto minimum = Micros(std::numeric_limits<int64_t>::min());
+  auto maximum = Duration::Max();
+  auto min_components = minimum.toComponents();
+  auto max_components = maximum.toComponents();
+  EXPECT_TRUE(min_components.negative);
+  EXPECT_FALSE(max_components.negative);
+  EXPECT_EQ(67108863u, min_components.days);
+  EXPECT_EQ(23u, min_components.hours);
+  EXPECT_EQ(59u, min_components.minutes);
+  EXPECT_EQ(59u, min_components.seconds);
+  EXPECT_EQ(999999u, min_components.micros);
+  EXPECT_EQ(Duration::FromComponents(max_components) * -1,
+            Duration::FromComponents(min_components));
+}
