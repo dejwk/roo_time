@@ -137,7 +137,10 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
 DateTime::DateTime(WallTime wall_time, TimeZone tz)
     : walltime_(wall_time), tz_(tz) {
   Duration sinceEpochTz = wall_time.sinceEpoch() + tz.offset();
-  int32_t unix_days = sinceEpochTz.inHours() / 24;
+  constexpr int64_t kMicrosPerDay = 86400000000LL;
+  const int64_t micros = sinceEpochTz.inMicros();
+  int32_t unix_days = micros / kMicrosPerDay;
+  if (micros % kMicrosPerDay < 0) --unix_days;
   civil_from_days(unix_days, &year_, &month_, &day_);
   day_of_year_ = day_of_year(year_, month_, day_);
   day_of_week_ = weekday_from_days(unix_days);

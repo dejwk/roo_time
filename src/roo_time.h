@@ -808,7 +808,7 @@ class DateTime {
               .tm_mon = month_ - 1,
               .tm_year = year_ - 1900,
               .tm_wday = day_of_week_,
-              .tm_yday = day_of_year_,
+              .tm_yday = day_of_year_ - 1,
               .tm_isdst = -1};
   }
 #endif

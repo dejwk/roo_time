@@ -243,3 +243,37 @@ TEST(DurationComponents, LargeValuesAndLimits) {
   EXPECT_EQ(Duration::FromComponents(max_components) * -1,
             Duration::FromComponents(min_components));
 }
+
+TEST(DateTime, NegativeEpochRoundTrip) {
+  using namespace roo_time;
+  for (int64_t micros : {-86400000001LL, -86400000000LL, -86399999999LL,
+                         -1LL, 0LL, 1LL}) {
+    for (int offset_hours : {-12, 0, 14}) {
+      TimeZone tz(Hours(offset_hours));
+      WallTime wall(Micros(micros));
+      DateTime date(wall, tz);
+      DateTime rebuilt(date.year(), date.month(), date.day(), date.hour(),
+                       date.minute(), date.second(), date.micros(), tz);
+      EXPECT_EQ(wall, rebuilt.wallTime());
+    }
+  }
+  DateTime date(WallTime(Micros(-1)), timezone::UTC);
+  EXPECT_EQ(1969, date.year());
+  EXPECT_EQ(kDecember, date.month());
+  EXPECT_EQ(31, date.day());
+  EXPECT_EQ(kWednesday, date.dayOfWeek());
+  EXPECT_EQ(365, date.dayOfYear());
+  EXPECT_EQ(23, date.hour());
+  EXPECT_EQ(59, date.minute());
+  EXPECT_EQ(59, date.second());
+  EXPECT_EQ(999999u, date.micros());
+}
+
+#ifdef CTIME_HDR_DEFINED
+TEST(DateTime, TmDayOfYear) {
+  using namespace roo_time;
+  EXPECT_EQ(0, DateTime(2024, 1, 1, timezone::UTC).tmStruct().tm_yday);
+  EXPECT_EQ(365, DateTime(2024, 12, 31, timezone::UTC).tmStruct().tm_yday);
+  EXPECT_EQ(364, DateTime(2023, 12, 31, timezone::UTC).tmStruct().tm_yday);
+}
+#endif
