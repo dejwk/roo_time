@@ -386,8 +386,15 @@ public:
 
   /// Unit expressions may select compact storage implicitly. The scaled result
   /// must fit, even when the original count fits its own representation.
-  template <int64_t Unit, typename Rep>
+  template <int64_t Unit, typename Rep,
+            typename std::enable_if<Unit % 1000 == 0, int>::type = 0>
   constexpr SmallDuration(IntegerTime<Unit, Rep> value)
+      : SmallDuration(static_cast<Duration>(value)) {}
+
+  /// Units that can contain fractional milliseconds require explicit narrowing.
+  template <int64_t Unit, typename Rep,
+            typename std::enable_if<Unit % 1000 != 0, int>::type = 0>
+  constexpr explicit SmallDuration(IntegerTime<Unit, Rep> value)
       : SmallDuration(static_cast<Duration>(value)) {}
 
   [[nodiscard]] constexpr int64_t inMicros() const {

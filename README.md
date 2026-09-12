@@ -394,8 +394,10 @@ original integer count and unit. For example, `Seconds(int32_t{5})` returns
 `Int32Minutes`, and `Int32Hours` use the same template. Floating-point factories
 continue to return `Duration`.
 
-Unit expressions convert implicitly to either duration type, letting the
-destination select storage. Conversion to `Duration` scales in 64 bits; conversion
+Whole-millisecond unit expressions convert implicitly to either duration type,
+letting the destination select storage. Units that can contain fractional
+milliseconds require explicit compact narrowing, for example
+`SmallDuration(Micros(999))`, which truncates to zero milliseconds. Conversion to `Duration` scales in 64 bits; conversion
 to `SmallDuration` requires the millisecond value to fit and truncates fractional
 milliseconds. Range violations are caller errors, with debug assertions for
 helper widening, compact narrowing, and compact arithmetic.

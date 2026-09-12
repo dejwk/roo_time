@@ -39,6 +39,12 @@ static_assert(kLargeSum.inMillis() == 4000000000LL, "Widen before arithmetic");
 constexpr Duration kLargeSeconds = Seconds(3000000);
 static_assert(kLargeSeconds.inMicros() == 3000000000000LL,
               "Widen before scaling");
+static_assert(!std::is_convertible<Int32Micros, SmallDuration>::value,
+              "Fractional milliseconds require explicit narrowing");
+static_assert(!std::is_convertible<IntegerTime<1500>, SmallDuration>::value,
+              "Non-integral millisecond units also require narrowing");
+static_assert(std::is_constructible<SmallDuration, Int32Micros>::value,
+              "Explicit narrowing remains available");
 constexpr SmallDuration kFiveSeconds = Seconds(5);
 static_assert(kFiveSeconds.inMillis() == 5000,
               "Destination selects compact storage");
@@ -101,7 +107,7 @@ TEST(IntegerTime, SharedAccessorsAndConversions) {
   EXPECT_EQ(60, Hours(1).inMinutes());
   EXPECT_FLOAT_EQ(0.5f, Minutes(30).inHoursFloat());
   EXPECT_EQ(Minutes(3), Duration::FromComponents(Minutes(3).toComponents()));
-  const SmallDuration truncated = Micros(-1999);
+  const SmallDuration truncated(Micros(-1999));
   EXPECT_EQ(-1, truncated.inMillis());
   EXPECT_EQ(-1000, truncated.inMicros());
   EXPECT_EQ(-1, truncated.inSecondsRoundedUp());
