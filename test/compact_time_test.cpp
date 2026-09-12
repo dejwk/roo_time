@@ -41,6 +41,11 @@ static_assert(std::is_same<decltype(kFiveSeconds + Millis(5)), Duration>::value,
               "Helper arithmetic widens");
 
 
+template <typename A, typename B, typename = void>
+struct CanMultiply : std::false_type {};
+template <typename A, typename B>
+struct CanMultiply<A, B, std::void_t<decltype(std::declval<A>() * std::declval<B>())>>
+    : std::true_type {};
 template <typename T, typename = void>
 struct CanMakeSmall : std::false_type {};
 template <typename T>
@@ -52,9 +57,24 @@ static_assert(!CanMakeSmall<double>::value && !CanMakeSmall<float>::value,
               "Compact factories reject floating counts");
 static_assert(CanMakeSmall<int64_t>::value && CanMakeSmall<uint64_t>::value,
               "Compact factories accept wide integers");
+static_assert(!CanMultiply<Duration, double>::value &&
+              !CanMultiply<double, Duration>::value &&
+              !CanMultiply<SmallDuration, float>::value &&
+              !CanMultiply<float, SmallDuration>::value,
+              "Floating factors must not silently truncate");
 static_assert(std::is_same<decltype(Seconds(2)), Duration>::value &&
               std::is_same<decltype(SmallSeconds(2)), SmallDuration>::value,
               "Factories have predictable return types");
+static_assert((Micros(-1) * uint64_t{4294967296}).inMicros() == -4294967296LL,
+              "Unsigned factors preserve width and duration sign");
+static_assert((int64_t{4294967296} * Micros(1)).inMicros() == 4294967296LL,
+              "Wide factors work in either order");
+static_assert((SmallMillis(1) * int64_t{65536}).inMillis() == 65536 &&
+              (uint64_t{65536} * SmallMillis(-1)).inMillis() == -65536,
+              "Compact multiplication does not narrow through int");
+static_assert(std::is_same<decltype(SmallSeconds(1) * int64_t{2}),
+                           SmallDuration>::value,
+              "Compact multiplication stays compact");
 static_assert(std::is_same<decltype(SmallSeconds(1) + Seconds(1)), Duration>::value,
               "Mixed addition widens");
 

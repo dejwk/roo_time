@@ -440,7 +440,10 @@ Duration widened = interval;         // Implicit, lossless widening.
 ```
 
 Arithmetic between compact durations stays compact; mixing with `Duration`
-returns `Duration`. Compact multiplication by an integer stays compact.
+returns `Duration`. Multiplication accepts integer factors representable in
+signed 64 bits, preserves their width, and requires representable intermediate
+and final results. Floating factors are rejected: `Seconds(2) * 0.5` is a
+compile-time error. Compact multiplication remains compact.
 
 The former integer-expression template and its Int32 unit aliases have been
 removed. Replace compact initializers such as `SmallDuration d = Seconds(2)`

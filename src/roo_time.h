@@ -461,14 +461,18 @@ inline constexpr Duration operator-(const Duration &a, const Duration &b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
-/// Multiplies duration by an integer factor.
-inline constexpr Duration operator*(const Duration &a, int b) {
-  return Micros(a.inMicros() * b);
+/// Multiplies by an integer factor representable in int64_t. Product must fit.
+/// Floating-point factors are rejected instead of silently truncated.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr Duration operator*(Duration value, Rep factor) {
+  return Micros(value.inMicros() * internal::ScaleTimeCount<1>(factor));
 }
 
-/// Multiplies duration by an integer factor.
-inline constexpr Duration operator*(int a, const Duration &b) {
-  return Micros(a * b.inMicros());
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr Duration operator*(Rep factor, Duration value) {
+  return value * factor;
 }
 
 inline constexpr SmallDuration operator+(SmallDuration a, SmallDuration b) {
@@ -481,11 +485,15 @@ inline constexpr SmallDuration operator-(SmallDuration a, SmallDuration b) {
       static_cast<int64_t>(a.inMillis()) - b.inMillis()));
 }
 
-inline constexpr SmallDuration operator*(SmallDuration value, int factor) {
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration operator*(SmallDuration value, Rep factor) {
   return SmallDuration::Millis(internal::CheckedSmallMillis(
-      static_cast<int64_t>(value.inMillis()) * factor));
+      static_cast<int64_t>(value.inMillis()) * internal::ScaleTimeCount<1>(factor)));
 }
-inline constexpr SmallDuration operator*(int factor, SmallDuration value) {
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
   return value * factor;
 }
 
