@@ -4,7 +4,9 @@
 ///
 /// Provides duration, uptime, and wall-time abstractions.
 
+#include <cassert>
 #include <inttypes.h>
+#include <type_traits>
 #if defined(ESP_PLATFORM) || defined(__linux__)
 #define CTIME_HDR_DEFINED
 #include <sys/time.h>
@@ -18,13 +20,171 @@
 /// timestamps with durations.
 namespace roo_time {
 
+class Duration;
+class SmallDuration;
+template <int64_t MicrosPerUnit, typename Rep> class IntegerTime;
+
+namespace internal {
+// Empty CRTP base: one implementation of all read-only unit conversions, with
+// no storage or virtual dispatch. Derived types provide inMicros().
+template <typename Derived> class DurationConversions {
+public:
+  /// Returns duration in milliseconds, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inMillis() const {
+    return inMillisRoundedDown();
+  }
+
+  /// Returns duration in seconds, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inSeconds() const {
+    return inSecondsRoundedDown();
+  }
+
+  /// Returns duration in minutes, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inMinutes() const {
+    return inMinutesRoundedDown();
+  }
+
+  /// Returns duration in hours, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inHours() const {
+    return inHoursRoundedDown();
+  }
+
+  /// Returns duration in milliseconds, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inMillisRoundedDown() const {
+    return derived().inMicros() / 1000LL;
+  }
+
+  /// Returns duration in seconds, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inSecondsRoundedDown() const {
+    return derived().inMicros() / 1000000LL;
+  }
+
+  /// Returns duration in minutes, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inMinutesRoundedDown() const {
+    return derived().inMicros() / 60000000LL;
+  }
+
+  /// Returns duration in hours, rounded toward zero.
+  [[nodiscard]] constexpr int64_t inHoursRoundedDown() const {
+    return derived().inMicros() / 3600000000LL;
+  }
+
+  /// Returns duration in milliseconds, rounded away from zero.
+  [[nodiscard]] constexpr int64_t inMillisRoundedUp() const {
+    int64_t q = derived().inMicros() / 1000LL;
+    int64_t r = derived().inMicros() % 1000LL;
+    if (r == 0)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in seconds, rounded away from zero.
+  [[nodiscard]] constexpr int64_t inSecondsRoundedUp() const {
+    int64_t q = derived().inMicros() / 1000000LL;
+    int64_t r = derived().inMicros() % 1000000LL;
+    if (r == 0)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in minutes, rounded away from zero.
+  [[nodiscard]] constexpr int64_t inMinutesRoundedUp() const {
+    int64_t q = derived().inMicros() / 60000000LL;
+    int64_t r = derived().inMicros() % 60000000LL;
+    if (r == 0)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in hours, rounded away from zero.
+  [[nodiscard]] constexpr int64_t inHoursRoundedUp() const {
+    int64_t q = derived().inMicros() / 3600000000LL;
+    int64_t r = derived().inMicros() % 3600000000LL;
+    if (r == 0)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in milliseconds, rounded to nearest (ties away from
+  /// zero).
+  [[nodiscard]] constexpr int64_t inMillisRoundedNearest() const {
+    int64_t q = derived().inMicros() / 1000LL;
+    int64_t r = derived().inMicros() % 1000LL;
+    int64_t ar = r < 0 ? -r : r;
+    if (ar * 2 < 1000LL)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in seconds, rounded to nearest (ties away from zero).
+  [[nodiscard]] constexpr int64_t inSecondsRoundedNearest() const {
+    int64_t q = derived().inMicros() / 1000000LL;
+    int64_t r = derived().inMicros() % 1000000LL;
+    int64_t ar = r < 0 ? -r : r;
+    if (ar * 2 < 1000000LL)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in minutes, rounded to nearest (ties away from zero).
+  [[nodiscard]] constexpr int64_t inMinutesRoundedNearest() const {
+    int64_t q = derived().inMicros() / 60000000LL;
+    int64_t r = derived().inMicros() % 60000000LL;
+    int64_t ar = r < 0 ? -r : r;
+    if (ar * 2 < 60000000LL)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in hours, rounded to nearest (ties away from zero).
+  [[nodiscard]] constexpr int64_t inHoursRoundedNearest() const {
+    int64_t q = derived().inMicros() / 3600000000LL;
+    int64_t r = derived().inMicros() % 3600000000LL;
+    int64_t ar = r < 0 ? -r : r;
+    if (ar * 2 < 3600000000LL)
+      return q;
+    return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in milliseconds as floating-point value.
+  [[nodiscard]] constexpr float inMillisFloat() const {
+    return derived().inMicros() / 1000.0;
+  }
+
+  /// Returns duration in seconds as floating-point value.
+  [[nodiscard]] constexpr float inSecondsFloat() const {
+    return derived().inMicros() / 1000000.0;
+  }
+
+  /// Returns duration in minutes as floating-point value.
+  [[nodiscard]] constexpr float inMinutesFloat() const {
+    return derived().inMicros() / 60000000.0;
+  }
+
+  /// Returns duration in hours as floating-point value.
+  [[nodiscard]] constexpr float inHoursFloat() const {
+    return derived().inMicros() / 3600000000.0;
+  }
+
+private:
+  constexpr const Derived &derived() const {
+    return static_cast<const Derived &>(*this);
+  }
+};
+
+constexpr int32_t CheckedSmallMillis(int64_t millis) {
+  assert(millis >= INT32_MIN && millis <= INT32_MAX);
+  return static_cast<int32_t>(millis);
+}
+} // namespace internal
+
 /// Represents an amount of time (e.g. 5s, 10min).
 ///
 /// Stored with microsecond precision and 64-bit range. Pass by value.
 /// Arithmetic is unchecked; inputs, intermediate results, and results must fit.
 /// For rounding and component saturation semantics, see README contracts.
-class Duration {
- public:
+class Duration : public internal::DurationConversions<Duration> {
+public:
   /// Calendar-like decomposition of a duration value.
   struct Components {
     bool negative : 1;
@@ -44,158 +204,29 @@ class Duration {
   /// Returns duration in microseconds.
   [[nodiscard]] constexpr int64_t inMicros() const { return micros_; }
 
-  /// Returns duration in milliseconds, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inMillis() const {
-    return inMillisRoundedDown();
-  }
-
-  /// Returns duration in seconds, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inSeconds() const {
-    return inSecondsRoundedDown();
-  }
-
-  /// Returns duration in minutes, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inMinutes() const {
-    return inMinutesRoundedDown();
-  }
-
-  /// Returns duration in hours, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inHours() const { return inHoursRoundedDown(); }
-
-  /// Returns duration in milliseconds, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inMillisRoundedDown() const {
-    return micros_ / 1000LL;
-  }
-
-  /// Returns duration in seconds, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inSecondsRoundedDown() const {
-    return micros_ / 1000000LL;
-  }
-
-  /// Returns duration in minutes, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inMinutesRoundedDown() const {
-    return micros_ / 60000000LL;
-  }
-
-  /// Returns duration in hours, rounded toward zero.
-  [[nodiscard]] constexpr int64_t inHoursRoundedDown() const {
-    return micros_ / 3600000000LL;
-  }
-
-  /// Returns duration in milliseconds, rounded away from zero.
-  [[nodiscard]] constexpr int64_t inMillisRoundedUp() const {
-    int64_t q = micros_ / 1000LL;
-    int64_t r = micros_ % 1000LL;
-    if (r == 0) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in seconds, rounded away from zero.
-  [[nodiscard]] constexpr int64_t inSecondsRoundedUp() const {
-    int64_t q = micros_ / 1000000LL;
-    int64_t r = micros_ % 1000000LL;
-    if (r == 0) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in minutes, rounded away from zero.
-  [[nodiscard]] constexpr int64_t inMinutesRoundedUp() const {
-    int64_t q = micros_ / 60000000LL;
-    int64_t r = micros_ % 60000000LL;
-    if (r == 0) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in hours, rounded away from zero.
-  [[nodiscard]] constexpr int64_t inHoursRoundedUp() const {
-    int64_t q = micros_ / 3600000000LL;
-    int64_t r = micros_ % 3600000000LL;
-    if (r == 0) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in milliseconds, rounded to nearest (ties away from
-  /// zero).
-  [[nodiscard]] constexpr int64_t inMillisRoundedNearest() const {
-    int64_t q = micros_ / 1000LL;
-    int64_t r = micros_ % 1000LL;
-    int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 1000LL) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in seconds, rounded to nearest (ties away from zero).
-  [[nodiscard]] constexpr int64_t inSecondsRoundedNearest() const {
-    int64_t q = micros_ / 1000000LL;
-    int64_t r = micros_ % 1000000LL;
-    int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 1000000LL) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in minutes, rounded to nearest (ties away from zero).
-  [[nodiscard]] constexpr int64_t inMinutesRoundedNearest() const {
-    int64_t q = micros_ / 60000000LL;
-    int64_t r = micros_ % 60000000LL;
-    int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 60000000LL) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in hours, rounded to nearest (ties away from zero).
-  [[nodiscard]] constexpr int64_t inHoursRoundedNearest() const {
-    int64_t q = micros_ / 3600000000LL;
-    int64_t r = micros_ % 3600000000LL;
-    int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 3600000000LL) return q;
-    return micros_ > 0 ? q + 1 : q - 1;
-  }
-
-  /// Returns duration in milliseconds as floating-point value.
-  [[nodiscard]] constexpr float inMillisFloat() const { return micros_ / 1000.0; }
-
-  /// Returns duration in seconds as floating-point value.
-  [[nodiscard]] constexpr float inSecondsFloat() const {
-    return micros_ / 1000000.0;
-  }
-
-  /// Returns duration in minutes as floating-point value.
-  [[nodiscard]] constexpr float inMinutesFloat() const {
-    return micros_ / 60000000.0;
-  }
-
-  /// Returns duration in hours as floating-point value.
-  [[nodiscard]] constexpr float inHoursFloat() const {
-    return micros_ / 3600000000.0;
-  }
-
   /// Adds another duration to this one.
-  Duration& operator+=(const Duration& other) {
+  Duration &operator+=(const Duration &other) {
     micros_ += other.inMicros();
     return *this;
   }
 
   /// Subtracts another duration from this one.
-  Duration& operator-=(const Duration& other) {
+  Duration &operator-=(const Duration &other) {
     micros_ -= other.inMicros();
     return *this;
   }
 
   /// Breaks duration into components (days, hours, minutes, ...).
-  /// Magnitudes above 67,108,863 days, 23:59:59.999999 saturate, preserving sign.
+  /// Magnitudes above 67,108,863 days, 23:59:59.999999 saturate, preserving
+  /// sign.
   Components toComponents() const;
 
   /// Reconstructs duration from normalized components.
   /// Requires hours < 24, minutes/seconds < 60, and micros < 1000000.
-  static Duration FromComponents(const Components& components);
+  static Duration FromComponents(const Components &components);
 
- private:
-  friend constexpr Duration Micros(long long micros);
-
-  friend constexpr Duration Millis(long long millis);
-  friend constexpr Duration Seconds(long long seconds);
-  friend constexpr Duration Minutes(long long minutes);
-  friend constexpr Duration Hours(long long hours);
+private:
+  template <int64_t, typename> friend class IntegerTime;
 
   friend constexpr Duration Millis(float millis);
   friend constexpr Duration Seconds(float seconds);
@@ -215,229 +246,308 @@ class Duration {
 /// Backwards compatibility alias. Prefer `Duration` in new code.
 using Interval = Duration;
 
-/// Constructs a duration from microseconds.
-inline constexpr Duration Micros(long long micros) { return Duration(micros); }
+/// A count in a compile-time unit. Conversion to Duration scales in int64_t.
+/// Rep is an integer type; scaled microseconds must fit int64_t when widened.
+/// Helpers have read-only duration accessors; arithmetic yields Duration.
+template <int64_t MicrosPerUnit, typename Rep = int32_t>
+class IntegerTime
+    : public internal::DurationConversions<IntegerTime<MicrosPerUnit, Rep>> {
+  static_assert(MicrosPerUnit > 0, "The time unit must be positive");
+  static_assert(std::is_integral<Rep>::value && sizeof(Rep) <= sizeof(int64_t),
+                "The count must be an integer of at most 64 bits");
 
-/// Constructs a duration from milliseconds.
-///
-/// Overloads accept integer and floating-point input types.
-inline constexpr Duration Millis(long long millis) {
-  return Micros(millis * 1000);
+public:
+  constexpr explicit IntegerTime(Rep count) : count_(count) {}
+
+  [[nodiscard]] constexpr int64_t inMicros() const {
+    if (std::is_signed<Rep>::value) {
+      assert(static_cast<int64_t>(count_) >= INT64_MIN / MicrosPerUnit &&
+             static_cast<int64_t>(count_) <= INT64_MAX / MicrosPerUnit);
+    } else {
+      assert(static_cast<uint64_t>(count_) <=
+             static_cast<uint64_t>(INT64_MAX / MicrosPerUnit));
+    }
+    return static_cast<int64_t>(count_) * MicrosPerUnit;
+  }
+
+  constexpr operator Duration() const { return Duration(inMicros()); }
+
+  Duration::Components toComponents() const {
+    return static_cast<Duration>(*this).toComponents();
+  }
+
+private:
+  Rep count_;
+};
+
+using Int32Micros = IntegerTime<1, int32_t>;
+using Int32Millis = IntegerTime<1000, int32_t>;
+using Int32Seconds = IntegerTime<1000000, int32_t>;
+using Int32Minutes = IntegerTime<60000000, int32_t>;
+using Int32Hours = IntegerTime<3600000000LL, int32_t>;
+
+/// Retains an integer count in micros until a duration is needed.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr IntegerTime<1LL, Rep> Micros(Rep count) {
+  return IntegerTime<1LL, Rep>(count);
 }
 
-inline constexpr Duration Millis(unsigned long long millis) {
-  return Millis((long long)millis);
+/// Floating microseconds are truncated, preserving the original factory
+/// behavior.
+template <typename Rep, typename std::enable_if<
+                            std::is_floating_point<Rep>::value, int>::type = 0>
+inline constexpr Duration Micros(Rep count) {
+  return Micros(static_cast<int64_t>(count));
 }
 
-inline constexpr Duration Millis(long millis) {
-  return Millis((long long)millis);
+/// Retains an integer count in millis until a duration is needed.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr IntegerTime<1000LL, Rep> Millis(Rep count) {
+  return IntegerTime<1000LL, Rep>(count);
 }
 
-inline constexpr Duration Millis(unsigned long millis) {
-  return Millis((long long)millis);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Millis(float count) {
+  return Duration(static_cast<int64_t>(count * 1000LL));
 }
 
-inline constexpr Duration Millis(int millis) {
-  return Millis((long long)millis);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Millis(double count) {
+  return Duration(static_cast<int64_t>(count * 1000LL));
 }
 
-inline constexpr Duration Millis(unsigned int millis) {
-  return Millis((long long)millis);
+/// Retains an integer count in seconds until a duration is needed.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr IntegerTime<1000000LL, Rep> Seconds(Rep count) {
+  return IntegerTime<1000000LL, Rep>(count);
 }
 
-inline constexpr Duration Millis(short millis) {
-  return Millis((long long)millis);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Seconds(float count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000));
 }
 
-inline constexpr Duration Millis(unsigned short millis) {
-  return Millis((long long)millis);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Seconds(double count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000));
 }
 
-inline constexpr Duration Millis(float millis) {
-  return Duration((long long)(millis * 1000));
+/// Retains an integer count in minutes until a duration is needed.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr IntegerTime<60000000LL, Rep> Minutes(Rep count) {
+  return IntegerTime<60000000LL, Rep>(count);
 }
 
-inline constexpr Duration Millis(double millis) {
-  return Duration((long long)(millis * 1000));
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Minutes(float count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000 * 60));
 }
 
-/// Constructs a duration from seconds.
-///
-/// Overloads accept integer and floating-point input types.
-inline constexpr Duration Seconds(long long seconds) {
-  return Micros(seconds * 1000 * 1000);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Minutes(double count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000 * 60));
 }
 
-inline constexpr Duration Seconds(unsigned long long seconds) {
-  return Seconds((long long)seconds);
+/// Retains an integer count in hours until a duration is needed.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr IntegerTime<3600000000LL, Rep> Hours(Rep count) {
+  return IntegerTime<3600000000LL, Rep>(count);
 }
 
-inline constexpr Duration Seconds(long seconds) {
-  return Seconds((long long)seconds);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Hours(float count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000 * 60 * 60));
 }
 
-inline constexpr Duration Seconds(unsigned long seconds) {
-  return Seconds((long long)seconds);
+/// Floating input retains the existing full Duration result type.
+inline constexpr Duration Hours(double count) {
+  return Duration(static_cast<int64_t>(count * 1000 * 1000 * 60 * 60));
 }
 
-inline constexpr Duration Seconds(int seconds) {
-  return Seconds((long long)seconds);
-}
+/// Signed 32-bit milliseconds. Arithmetic must remain representable; it does
+/// not wrap. Widening to Duration is implicit and lossless.
+class SmallDuration : public internal::DurationConversions<SmallDuration> {
+public:
+  constexpr SmallDuration() : millis_(0) {}
 
-inline constexpr Duration Seconds(unsigned int seconds) {
-  return Seconds((long long)seconds);
-}
+  static constexpr SmallDuration Millis(int32_t millis) {
+    return SmallDuration(millis, 0);
+  }
 
-inline constexpr Duration Seconds(short seconds) {
-  return Seconds((long long)seconds);
-}
+  /// Narrow explicitly from a full duration, truncating toward zero.
+  /// The millisecond result must fit int32_t (asserted in debug builds).
+  constexpr explicit SmallDuration(Duration duration)
+      : millis_(internal::CheckedSmallMillis(duration.inMillis())) {}
 
-inline constexpr Duration Seconds(unsigned short seconds) {
-  return Seconds((long long)seconds);
-}
+  /// Unit expressions may select compact storage implicitly. The scaled result
+  /// must fit, even when the original count fits its own representation.
+  template <int64_t Unit, typename Rep>
+  constexpr SmallDuration(IntegerTime<Unit, Rep> value)
+      : SmallDuration(static_cast<Duration>(value)) {}
 
-inline constexpr Duration Seconds(float seconds) {
-  return Duration((int64_t)(seconds * 1000 * 1000));
-}
+  [[nodiscard]] constexpr int64_t inMicros() const {
+    return static_cast<int64_t>(millis_) * 1000;
+  }
+  [[nodiscard]] constexpr int32_t inMillis() const { return millis_; }
+  constexpr operator Duration() const { return roo_time::Micros(inMicros()); }
 
-inline constexpr Duration Seconds(double seconds) {
-  return Duration((int64_t)(seconds * 1000 * 1000));
-}
+  Duration::Components toComponents() const {
+    return static_cast<Duration>(*this).toComponents();
+  }
 
-/// Constructs a duration from minutes.
-///
-/// Overloads accept integer and floating-point input types.
-inline constexpr Duration Minutes(long long minutes) {
-  return Duration(minutes * 1000 * 1000 * 60);
-}
+  SmallDuration &operator+=(SmallDuration other) {
+    millis_ = internal::CheckedSmallMillis(static_cast<int64_t>(millis_) +
+                                           other.millis_);
+    return *this;
+  }
+  SmallDuration &operator-=(SmallDuration other) {
+    millis_ = internal::CheckedSmallMillis(static_cast<int64_t>(millis_) -
+                                           other.millis_);
+    return *this;
+  }
 
-inline constexpr Duration Minutes(unsigned long long minutes) {
-  return Minutes((long long)minutes);
-}
+private:
+  constexpr SmallDuration(int32_t millis, int) : millis_(millis) {}
+  int32_t millis_;
+};
 
-inline constexpr Duration Minutes(long minutes) {
-  return Minutes((long long)minutes);
-}
+namespace internal {
+template <typename T> struct IsDurationLike : std::false_type {};
+template <> struct IsDurationLike<Duration> : std::true_type {};
+template <> struct IsDurationLike<SmallDuration> : std::true_type {};
+template <int64_t Unit, typename Rep>
+struct IsDurationLike<IntegerTime<Unit, Rep>> : std::true_type {};
 
-inline constexpr Duration Minutes(unsigned long minutes) {
-  return Minutes((long long)minutes);
-}
-
-inline constexpr Duration Minutes(int minutes) {
-  return Minutes((long long)minutes);
-}
-
-inline constexpr Duration Minutes(unsigned int minutes) {
-  return Minutes((long long)minutes);
-}
-
-inline constexpr Duration Minutes(short minutes) {
-  return Minutes((long long)minutes);
-}
-
-inline constexpr Duration Minutes(unsigned short minutes) {
-  return Minutes((long long)minutes);
-}
-
-inline constexpr Duration Minutes(float minutes) {
-  return Duration((int64_t)(minutes * 1000 * 1000 * 60));
-}
-
-inline constexpr Duration Minutes(double minutes) {
-  return Duration((int64_t)(minutes * 1000 * 1000 * 60));
-}
-
-/// Constructs a duration from hours.
-///
-/// Overloads accept integer and floating-point input types.
-inline constexpr Duration Hours(long long hours) {
-  return Duration(hours * 1000 * 1000 * 60 * 60);
-}
-
-inline constexpr Duration Hours(unsigned long long minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(long minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(unsigned long minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(int minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(unsigned int minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(short minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(unsigned short minutes) {
-  return Hours((long long)minutes);
-}
-
-inline constexpr Duration Hours(float hours) {
-  return Duration((int64_t)(hours * 1000 * 1000 * 60 * 60));
-}
-
-inline constexpr Duration Hours(double hours) {
-  return Duration((int64_t)(hours * 1000 * 1000 * 60 * 60));
-}
+template <typename A, typename B>
+using EnableDurationPair = typename std::enable_if<
+    IsDurationLike<A>::value && IsDurationLike<B>::value, int>::type;
+} // namespace internal
 
 /// Returns true if both durations are equal.
-inline bool operator==(const Duration& a, const Duration& b) {
+inline constexpr bool operator==(const Duration &a, const Duration &b) {
   return a.inMicros() == b.inMicros();
 }
 
 /// Returns true if durations differ.
-inline bool operator!=(const Duration& a, const Duration& b) {
+inline constexpr bool operator!=(const Duration &a, const Duration &b) {
   return a.inMicros() != b.inMicros();
 }
 
 /// Returns true if `a` is shorter than `b`.
-inline bool operator<(const Duration& a, const Duration& b) {
+inline constexpr bool operator<(const Duration &a, const Duration &b) {
   return a.inMicros() < b.inMicros();
 }
 
 /// Returns true if `a` is longer than `b`.
-inline bool operator>(const Duration& a, const Duration& b) {
+inline constexpr bool operator>(const Duration &a, const Duration &b) {
   return a.inMicros() > b.inMicros();
 }
 
 /// Returns true if `a` is not longer than `b`.
-inline bool operator<=(const Duration& a, const Duration& b) {
+inline constexpr bool operator<=(const Duration &a, const Duration &b) {
   return a.inMicros() <= b.inMicros();
 }
 
 /// Returns true if `a` is not shorter than `b`.
-inline bool operator>=(const Duration& a, const Duration& b) {
+inline constexpr bool operator>=(const Duration &a, const Duration &b) {
   return a.inMicros() >= b.inMicros();
 }
 
 /// Returns the sum of two durations.
-inline Duration operator+(const Duration& a, const Duration& b) {
+inline constexpr Duration operator+(const Duration &a, const Duration &b) {
   return Micros(a.inMicros() + b.inMicros());
 }
 
 /// Returns the difference between two durations.
-inline Duration operator-(const Duration& a, const Duration& b) {
+inline constexpr Duration operator-(const Duration &a, const Duration &b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
 /// Multiplies duration by an integer factor.
-inline Duration operator*(const Duration& a, int b) {
+inline constexpr Duration operator*(const Duration &a, int b) {
   return Micros(a.inMicros() * b);
 }
 
 /// Multiplies duration by an integer factor.
-inline Duration operator*(int a, const Duration& b) {
+inline constexpr Duration operator*(int a, const Duration &b) {
   return Micros(a * b.inMicros());
+}
+
+// All unit combinations share these constrained operators. Mixing a helper or
+// full Duration into arithmetic widens the result before the operation.
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator==(const A &a, const B &b) {
+  return a.inMicros() == b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator!=(const A &a, const B &b) {
+  return a.inMicros() != b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator<(const A &a, const B &b) {
+  return a.inMicros() < b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator>(const A &a, const B &b) {
+  return a.inMicros() > b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator<=(const A &a, const B &b) {
+  return a.inMicros() <= b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr bool operator>=(const A &a, const B &b) {
+  return a.inMicros() >= b.inMicros();
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr Duration operator+(const A &a, const B &b) {
+  return Micros(a.inMicros() + b.inMicros());
+}
+
+template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
+inline constexpr Duration operator-(const A &a, const B &b) {
+  return Micros(a.inMicros() - b.inMicros());
+}
+
+template <typename D, typename std::enable_if<
+                          internal::IsDurationLike<D>::value, int>::type = 0>
+inline constexpr Duration operator*(const D &value, int factor) {
+  return Micros(value.inMicros() * factor);
+}
+
+template <typename D, typename std::enable_if<
+                          internal::IsDurationLike<D>::value, int>::type = 0>
+inline constexpr Duration operator*(int factor, const D &value) {
+  return Micros(value.inMicros() * factor);
+}
+
+inline constexpr SmallDuration operator+(SmallDuration a, SmallDuration b) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      static_cast<int64_t>(a.inMillis()) + b.inMillis()));
+}
+
+inline constexpr SmallDuration operator-(SmallDuration a, SmallDuration b) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      static_cast<int64_t>(a.inMillis()) - b.inMillis()));
+}
+
+inline constexpr SmallDuration operator*(SmallDuration value, int factor) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      static_cast<int64_t>(value.inMillis()) * factor));
+}
+inline constexpr SmallDuration operator*(int factor, SmallDuration value) {
+  return value * factor;
 }
 
 /// Represents an instant relative to the selected uptime clock origin.
@@ -568,6 +678,70 @@ inline Uptime operator-(const Uptime& u, const Duration& i) {
 /// Returns uptime shifted by duration.
 inline Uptime operator+(const Duration& i, const Uptime& u) {
   return Uptime(u.inMicros() + i.inMicros());
+}
+
+/// Opaque wrapping millisecond timestamp. No epoch or absolute-time accessor.
+/// Ordered comparisons and subtraction require actual separation strictly less
+/// than 2^31 milliseconds, within the same clock domain. Equality compares
+/// bits.
+class SmallTimestamp {
+public:
+  constexpr SmallTimestamp() : millis_(0) {}
+
+  /// Truncates uptime to milliseconds and retains its low 32 bits.
+  SmallTimestamp(Uptime uptime)
+      : millis_(static_cast<uint32_t>(uptime.inMillis())) {}
+  static SmallTimestamp Now() { return Uptime::Now(); }
+
+  SmallTimestamp &operator+=(SmallDuration duration) {
+    millis_ += static_cast<uint32_t>(duration.inMillis());
+    return *this;
+  }
+  SmallTimestamp &operator-=(SmallDuration duration) {
+    millis_ -= static_cast<uint32_t>(duration.inMillis());
+    return *this;
+  }
+
+  friend constexpr bool operator==(SmallTimestamp a, SmallTimestamp b) {
+    return a.millis_ == b.millis_;
+  }
+  friend constexpr bool operator!=(SmallTimestamp a, SmallTimestamp b) {
+    return !(a == b);
+  }
+  friend constexpr SmallDuration operator-(SmallTimestamp a, SmallTimestamp b) {
+    const uint32_t delta = a.millis_ - b.millis_;
+    assert(delta != 0x80000000u); // Exactly half a cycle is ambiguous.
+    const int64_t signed_delta =
+        delta <= INT32_MAX ? static_cast<int64_t>(delta)
+                           : static_cast<int64_t>(delta) - 0x100000000LL;
+    return SmallDuration::Millis(static_cast<int32_t>(signed_delta));
+  }
+
+private:
+  uint32_t millis_;
+};
+
+inline SmallTimestamp operator+(SmallTimestamp t, SmallDuration d) {
+  return t += d;
+}
+inline SmallTimestamp operator+(SmallDuration d, SmallTimestamp t) {
+  return t += d;
+}
+inline SmallTimestamp operator-(SmallTimestamp t, SmallDuration d) {
+  return t -= d;
+}
+
+inline constexpr bool operator<(SmallTimestamp a, SmallTimestamp b) {
+  return (a - b).inMillis() < 0;
+}
+inline constexpr bool operator>(SmallTimestamp a, SmallTimestamp b) {
+  return (a - b).inMillis() > 0;
+}
+inline constexpr bool operator<=(SmallTimestamp a, SmallTimestamp b) {
+  return (a - b).inMillis() <= 0;
+}
+inline constexpr bool operator>=(SmallTimestamp a, SmallTimestamp b) {
+  return (a - b).inMillis() >= 0;
 }
 
 /// Delays execution for `duration`.
@@ -861,7 +1035,7 @@ inline bool operator!=(const DateTime& a, const DateTime& b) {
          a.timeZone().offset() != b.timeZone().offset();
 }
 
-}  // namespace roo_time
+} // namespace roo_time
 
 #if defined(__linux__)
 

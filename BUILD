@@ -116,3 +116,10 @@ cc_test(
         ("emulated_delay_test", "TEST_EMULATED_DELAY"),
     ]
 ]
+
+cc_test(
+    name = "compact_time_test",
+    size = "small",
+    srcs = ["test/compact_time_test.cpp"],
+    deps = [":roo_time", "@googletest//:gtest_main"],
+)

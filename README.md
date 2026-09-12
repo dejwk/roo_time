@@ -35,6 +35,7 @@ requires regular clock sampling and serialized calls; see
 | `Duration` | An amount of time | `Millis(250)`, `Seconds(2)`, `Hours(24)` |
 | `Uptime` | A point on the device/process uptime clock | Measuring elapsed time and setting deadlines |
 | `WallTime` | A timestamp relative to the Unix epoch | Reading an RTC or a synchronized system clock |
+| `SmallDuration` / `SmallTimestamp` | Compact millisecond durations / wrapping timestamps | Storing many short-lived timing values |
 | `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
 
 Use uptime for timing work and wall time for dates. `UtcOffset` supplies a fixed UTC
@@ -65,6 +66,25 @@ make either wait longer than requested; use them in task/loop context.
 Subtracting two uptimes gives a duration. Adding a duration to an uptime gives
 another uptime. The same arithmetic works for wall time, but mixing wall time and
 uptime is a compile-time error.
+
+## Compact timing values (prototype)
+
+`SmallDuration` and `SmallTimestamp` store millisecond timing values in four bytes
+each. Unit expressions such as `Millis(250)` convert to either duration type:
+
+```cpp
+SmallDuration interval = Millis(250);
+SmallTimestamp start = SmallTimestamp::Now();
+SmallTimestamp deadline = start + interval;
+SmallDuration remaining = deadline - SmallTimestamp::Now();
+Duration full_remaining = remaining;  // Implicit, lossless widening.
+```
+
+Compact timestamps wrap. Use their ordering and differences only within a window
+strictly shorter than 2^31 milliseconds (about 24.86 days). See
+[compact timing contracts](#compact-timing-contracts) and
+[integer unit expressions](#integer-unit-expressions) for range and compatibility
+details.
 
 ## Reading wall time
 
@@ -337,6 +357,73 @@ class DSTWatch {
   WallTimeClock& clock_;
 };
 ```
+
+### Compact timing contracts
+
+`SmallDuration` stores signed 32-bit milliseconds; `SmallTimestamp` stores an
+opaque unsigned 32-bit millisecond timestamp. Each occupies four bytes:
+
+`Uptime` converts implicitly to `SmallTimestamp`, truncating to milliseconds and
+retaining the low 32 bits. `SmallTimestamp::Now()` uses that same conversion.
+There is no absolute-time accessor or recoverable epoch on a compact timestamp.
+The clock backend's existing sampling and concurrency requirements still apply.
+
+Timestamp shifts wrap modulo 2^32. Ordering and subtraction use the closer signed
+difference, so a tick value of zero follows `0xFFFFFFFF`. The caller must ensure
+that compared timestamps are from the same clock domain and actually separated
+by **strictly less than 2^31 milliseconds** (about 24.86 days). Exactly half a
+cycle is ambiguous and asserted in debug builds; other violations cannot always
+be detected. Equality compares stored bits, so instants one full cycle apart can
+compare equal. Sorting requires the entire collection to fit in one half-cycle
+window.
+
+Compact duration arithmetic does **not** wrap. Results must fit signed 32-bit
+milliseconds. Widening to `Duration` is implicit; narrowing an existing `Duration`
+is explicit and truncates fractional milliseconds toward zero:
+
+```cpp
+Duration full = Seconds(2.5);
+SmallDuration compact(full);
+```
+
+### Integer unit expressions
+
+Integer factories now return `IntegerTime<MicrosPerUnit, Rep>`, which retains the
+original integer count and unit. For example, `Seconds(int32_t{5})` returns
+`Int32Seconds`. The aliases `Int32Micros`, `Int32Millis`, `Int32Seconds`,
+`Int32Minutes`, and `Int32Hours` use the same template. Floating-point factories
+continue to return `Duration`.
+
+Unit expressions convert implicitly to either duration type, letting the
+destination select storage. Conversion to `Duration` scales in 64 bits; conversion
+to `SmallDuration` requires the millisecond value to fit and truncates fractional
+milliseconds. Range violations are caller errors, with debug assertions for
+helper widening, compact narrowing, and compact arithmetic.
+
+```cpp
+Duration long_interval = Seconds(3'000'000);  // Fits in full precision.
+SmallDuration short_interval = Seconds(5);   // 5000 milliseconds.
+Duration total = Millis(2'000'000'000) + Millis(2'000'000'000);
+// SmallDuration too_large = Seconds(3'000'000);  // Outside the compact range.
+```
+
+Arithmetic involving a unit expression or full `Duration` produces `Duration`;
+only arithmetic between compact durations (or compact duration multiplication by
+an integer) stays compact. Adding/subtracting a unit expression to/from a
+`SmallTimestamp` converts it to `SmallDuration` and preserves the timestamp type.
+To shift by an existing full `Duration`, explicitly narrow it first.
+
+All duration-like types share the `inMillis()`, `inSeconds()`, rounding, and
+floating-point accessors through a stateless base template. No unit-pair
+specializations or virtual methods are needed.
+
+This changes the type deduced by `auto`: `auto interval = Seconds(2)` is a
+read-only unit expression with duration accessors; use `Duration interval =
+Seconds(2)` for a mutable accumulator. Templates requiring identical argument
+types, such as `std::min`, and conditional expressions mixing different unit
+helpers may need explicit `Duration` conversions. Code depending on the exact
+factory return type also needs updating. This prototype is not a drop-in
+return-type-compatible change.
 
 ### Performance and program size
 
