@@ -224,7 +224,7 @@ TEST(DurationComponents, LargeValuesAndLimits) {
   using namespace roo_time;
   for (int64_t days : {0LL, 24855LL, 24856LL, 30000LL, 67108863LL}) {
     for (int sign : {-1, 1}) {
-      auto duration = sign * (Hours(days * 24) + Hours(23) + Minutes(59) +
+      const auto duration = sign * (Hours(days * 24) + Hours(23) + Minutes(59) +
                               Seconds(59) + Micros(999999));
       EXPECT_EQ(duration, Duration::FromComponents(duration.toComponents()));
     }

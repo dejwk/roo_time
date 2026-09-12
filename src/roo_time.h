@@ -181,7 +181,7 @@ class Duration {
   }
 
   /// Breaks duration into components (days, hours, minutes, ...).
-  Components toComponents();
+  Components toComponents() const;
 
   /// Reconstructs duration from components.
   static Duration FromComponents(const Components& components);

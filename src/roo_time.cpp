@@ -7,7 +7,7 @@ const int64_t kMaxComponentizedDuration =
     (1024LL * 1024 * 64) * 24 * 3600 * 1000000LL - 1;
 }
 
-Duration::Components Duration::toComponents() {
+Duration::Components Duration::toComponents() const {
   Duration::Components c;
   c.negative = (micros_ < 0);
   uint64_t v = c.negative ? uint64_t{0} - static_cast<uint64_t>(micros_)
