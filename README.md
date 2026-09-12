@@ -452,8 +452,18 @@ Duration widened = interval;         // Implicit, lossless widening.
 Arithmetic between compact durations stays compact; mixing with `Duration`
 returns `Duration`. Multiplication accepts integer factors representable in
 signed 64 bits, preserves their width, and requires representable intermediate
-and final results. Floating factors are rejected: `Seconds(2) * 0.5` is a
-compile-time error. Compact multiplication remains compact.
+and final results. Floating multiplication uses the factor's floating-point type,
+then truncates toward zero to microseconds for `Duration` or milliseconds for
+`SmallDuration`. Both operand orders are supported; compact multiplication stays
+compact. For example, `Seconds(2) * 0.5` is one second, and
+`SmallMillis(3) * 0.5` is one millisecond.
+
+Floating factors and products must be finite, and intermediate and final values
+must be representable. These are caller preconditions, not a saturating conversion
+or error-return API. Converting duration counts to floating point can lose
+precision, especially for large counts or on targets with 32-bit `double`.
+Integer multiplication keeps its exact integer path. Compact factories remain
+integer-only; floating multiplication does not change their input contract.
 
 The former integer-expression template and its Int32 unit aliases have been
 removed. Replace compact initializers such as `SmallDuration d = Seconds(2)`

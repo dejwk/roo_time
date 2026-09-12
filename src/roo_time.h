@@ -462,7 +462,6 @@ inline constexpr Duration operator-(const Duration &a, const Duration &b) {
 }
 
 /// Multiplies by an integer factor representable in int64_t. Product must fit.
-/// Floating-point factors are rejected instead of silently truncated.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr Duration operator*(Duration value, Rep factor) {
@@ -471,6 +470,22 @@ inline constexpr Duration operator*(Duration value, Rep factor) {
 
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr Duration operator*(Rep factor, Duration value) {
+  return value * factor;
+}
+
+
+/// Multiplies in the factor's floating-point type, then truncates toward zero
+/// to microseconds. Factor and product must be finite; intermediate and final
+/// values must be representable. Floating conversion may lose precision.
+template <typename Rep,
+          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+inline constexpr Duration operator*(Duration value, Rep factor) {
+  return Micros(static_cast<int64_t>(value.inMicros() * factor));
+}
+
+template <typename Rep,
+          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr Duration operator*(Rep factor, Duration value) {
   return value * factor;
 }
@@ -493,6 +508,23 @@ inline constexpr SmallDuration operator*(SmallDuration value, Rep factor) {
 }
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
+  return value * factor;
+}
+
+
+/// Multiplies in the factor's floating-point type, then truncates toward zero
+/// to milliseconds. Factor and product must be finite; intermediate and final
+/// values must be representable. Floating conversion may lose precision.
+template <typename Rep,
+          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration operator*(SmallDuration value, Rep factor) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      static_cast<int64_t>(value.inMillis() * factor)));
+}
+
+template <typename Rep,
+          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
   return value * factor;
 }

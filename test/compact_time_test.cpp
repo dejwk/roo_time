@@ -57,11 +57,11 @@ static_assert(!CanMakeSmall<double>::value && !CanMakeSmall<float>::value,
               "Compact factories reject floating counts");
 static_assert(CanMakeSmall<int64_t>::value && CanMakeSmall<uint64_t>::value,
               "Compact factories accept wide integers");
-static_assert(!CanMultiply<Duration, double>::value &&
-              !CanMultiply<double, Duration>::value &&
-              !CanMultiply<SmallDuration, float>::value &&
-              !CanMultiply<float, SmallDuration>::value,
-              "Floating factors must not silently truncate");
+static_assert(CanMultiply<Duration, double>::value &&
+              CanMultiply<double, Duration>::value &&
+              CanMultiply<SmallDuration, float>::value &&
+              CanMultiply<float, SmallDuration>::value,
+              "Floating factors are supported in either order");
 static_assert(std::is_same<decltype(Seconds(2)), Duration>::value &&
               std::is_same<decltype(SmallSeconds(2)), SmallDuration>::value,
               "Factories have predictable return types");
@@ -77,6 +77,45 @@ static_assert(std::is_same<decltype(SmallSeconds(1) * int64_t{2}),
               "Compact multiplication stays compact");
 static_assert(std::is_same<decltype(SmallSeconds(1) + Seconds(1)), Duration>::value,
               "Mixed addition widens");
+
+template <typename Rep> void CheckFloatingMultiplication() {
+  constexpr Rep half = Rep(0.5);
+  static_assert((Seconds(2) * half).inMicros() == 1000000,
+                "Multiply before truncating");
+  static_assert((half * SmallMillis(3)).inMillis() == 1,
+                "Compact result truncates to milliseconds");
+  static_assert(std::is_same<decltype(half * Seconds(2)), Duration>::value,
+                "Full multiplication stays full");
+  static_assert(std::is_same<decltype(SmallMillis(3) * half), SmallDuration>::value,
+                "Floating compact multiplication stays compact");
+  for (int sign : {-1, 1}) {
+    EXPECT_EQ(sign, (Micros(sign * 3) * half).inMicros());
+    EXPECT_EQ(sign, (half * Micros(sign * 3)).inMicros());
+    EXPECT_EQ(-sign, (Micros(sign * 3) * -half).inMicros());
+    EXPECT_EQ(-sign, (-half * Micros(sign * 3)).inMicros());
+    EXPECT_EQ(sign, (SmallMillis(sign * 3) * half).inMillis());
+    EXPECT_EQ(sign, (half * SmallMillis(sign * 3)).inMillis());
+    EXPECT_EQ(-sign, (SmallMillis(sign * 3) * -half).inMillis());
+    EXPECT_EQ(-sign, (-half * SmallMillis(sign * 3)).inMillis());
+  }
+  EXPECT_EQ(0, (Micros(1) * half).inMicros());
+  EXPECT_EQ(0, (SmallMillis(-1) * half).inMillis());
+  EXPECT_EQ(0, (Seconds(2) * Rep(0)).inMicros());
+  EXPECT_EQ(0, (Rep(0) * SmallSeconds(2)).inMillis());
+  EXPECT_EQ(5000000, (Seconds(2) * Rep(2.5)).inMicros());
+  EXPECT_EQ(5000, (Rep(2.5) * SmallSeconds(2)).inMillis());
+}
+
+TEST(DurationMultiplication, FloatingFactors) {
+  CheckFloatingMultiplication<float>();
+  CheckFloatingMultiplication<double>();
+  CheckFloatingMultiplication<long double>();
+  // Integer factors must retain the exact integer path above double precision.
+  EXPECT_EQ(9007199254740993LL, (Micros(9007199254740993LL) * 1).inMicros());
+#ifndef NDEBUG
+  EXPECT_DEATH({ (void)(SmallMillis(INT32_MAX) * 2.0); }, "");
+#endif
+}
 
 TEST(DurationFactories, CompactUnitsAndBoundaries) {
   EXPECT_EQ(250, SmallMillis(250).inMillis());
