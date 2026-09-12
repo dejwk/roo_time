@@ -700,12 +700,13 @@ public:
       : millis_(static_cast<uint32_t>(uptime.inMillis())) {}
   static SmallTimestamp Now() { return Uptime::Now(); }
 
-  SmallTimestamp &operator+=(SmallDuration duration) {
-    millis_ += static_cast<uint32_t>(duration.inMillis());
+  /// Shift by a duration, truncating to milliseconds; the shift must fit int32_t.
+  SmallTimestamp &operator+=(Duration duration) {
+    millis_ += static_cast<uint32_t>(SmallDuration(duration).inMillis());
     return *this;
   }
-  SmallTimestamp &operator-=(SmallDuration duration) {
-    millis_ -= static_cast<uint32_t>(duration.inMillis());
+  SmallTimestamp &operator-=(Duration duration) {
+    millis_ -= static_cast<uint32_t>(SmallDuration(duration).inMillis());
     return *this;
   }
 
@@ -728,13 +729,13 @@ private:
   uint32_t millis_;
 };
 
-inline SmallTimestamp operator+(SmallTimestamp t, SmallDuration d) {
+inline SmallTimestamp operator+(SmallTimestamp t, Duration d) {
   return t += d;
 }
-inline SmallTimestamp operator+(SmallDuration d, SmallTimestamp t) {
+inline SmallTimestamp operator+(Duration d, SmallTimestamp t) {
   return t += d;
 }
-inline SmallTimestamp operator-(SmallTimestamp t, SmallDuration d) {
+inline SmallTimestamp operator-(SmallTimestamp t, Duration d) {
   return t -= d;
 }
 

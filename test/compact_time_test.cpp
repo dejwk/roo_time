@@ -231,3 +231,24 @@ TEST(CompactTimeDeathTest, RejectsDetectableRangeViolations) {
 #endif
 } // namespace
 } // namespace roo_time
+
+TEST(CompactTimestampShift, FullDurationsAndUnitExpressions) {
+  using namespace roo_time;
+  const SmallTimestamp start = Uptime::Start();
+  const Duration shift = Seconds(1) + Millis(500);
+  EXPECT_EQ(1500, ((start + shift) - start).inMillis());
+  EXPECT_EQ(1500, ((shift + start) - start).inMillis());
+  EXPECT_EQ(-1500, ((start - shift) - start).inMillis());
+  EXPECT_EQ(start, start + Micros(999));
+  EXPECT_EQ(-1, ((start + Micros(-1999)) - start).inMillis());
+  EXPECT_EQ(5000, ((start + Seconds(5)) - start).inMillis());
+  SmallDuration compact = Millis(250);
+  EXPECT_EQ(250, ((start + compact) - start).inMillis());
+  auto t = start;
+  t += shift;
+  t -= Seconds(1) + Millis(500);
+  EXPECT_EQ(start, t);
+#ifndef NDEBUG
+  EXPECT_DEATH({ auto bad = start + Seconds(3000000); (void)bad; }, "");
+#endif
+}

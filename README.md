@@ -411,9 +411,11 @@ Duration total = Millis(2'000'000'000) + Millis(2'000'000'000);
 
 Arithmetic involving a unit expression or full `Duration` produces `Duration`;
 only arithmetic between compact durations (or compact duration multiplication by
-an integer) stays compact. Adding/subtracting a unit expression to/from a
-`SmallTimestamp` converts it to `SmallDuration` and preserves the timestamp type.
-To shift by an existing full `Duration`, explicitly narrow it first.
+an integer) stays compact. `SmallTimestamp` shifts accept `Duration`, compact durations, and unit expressions,
+including sums such as `start + (Seconds(1) + Millis(500))`. The shift truncates
+fractional milliseconds toward zero and must fit signed 32-bit milliseconds.
+The result remains a wrapping `SmallTimestamp`. Storing a full `Duration` in a
+`SmallDuration` still requires explicit narrowing.
 
 All duration-like types share the `inMillis()`, `inSeconds()`, rounding, and
 floating-point accessors through a stateless base template. No unit-pair
