@@ -179,6 +179,32 @@ void loop() {
 }
 ```
 
+## Optional std::chrono interoperability
+
+Include `roo_time/chrono.h` to enable explicit duration conversions when the
+standard library provides `<chrono>`. The core `roo_time.h` remains independent
+of that header.
+
+```cpp
+#include "roo_time/chrono.h"
+#if ROO_TIME_HAS_CHRONO
+Duration interval = FromChrono(std::chrono::milliseconds(1500));
+auto standard = ToChrono(interval);  // std::chrono::microseconds
+auto milliseconds = ToChrono<std::chrono::milliseconds>(interval);
+SmallDuration compact(FromChrono(std::chrono::seconds(2)));
+#endif
+```
+
+The adapter uses `__has_include` to detect the header. On toolchains without
+header detection it defaults to disabled; define `ROO_TIME_HAS_CHRONO=1` only if
+`<chrono>` is supported. Define it to `0` to keep the adapter disabled even when
+the header exists. Detection covers duration types, not working hardware clocks.
+
+Conversions follow `duration_cast`: integer results truncate toward zero, and
+intermediate and destination values must be representable. Floating inputs must
+be finite. Clock/time-point conversions are intentionally absent because epochs
+and sleep accounting may differ.
+
 ## Host emulation
 
 Host builds support both Arduino and ESP-IDF through roo_testing 2.0. With

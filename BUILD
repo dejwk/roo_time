@@ -20,6 +20,7 @@ cc_library(
     srcs = [
         "src/roo_time.cpp",
         "src/roo_time.h",
+        "src/roo_time/chrono.h",
     ],
     includes = [
         "src",
@@ -138,3 +139,17 @@ cc_test(
         ("pico_arduino_time_test", ["-DTEST_PICO_ARDUINO"]),
     ]
 ]
+
+cc_test(
+    name = "chrono_test",
+    size = "small",
+    srcs = ["test/chrono_test.cpp"],
+    deps = [":core", "@googletest//:gtest_main"],
+)
+
+cc_test(
+    name = "chrono_disabled_test",
+    size = "small",
+    srcs = ["test/chrono_disabled_test.cpp"],
+    deps = [":core"],
+)
