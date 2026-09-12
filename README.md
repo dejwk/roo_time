@@ -1,50 +1,117 @@
 # roo_time
-Microcontroller library for basic management of elapsed time, wall time, and date time with multi-timezone support.
-Provides type safety around durations and different time units, guarding against common programming errors like confusing time
-units, or confusing 'timestamps' with 'durations'.
 
-Internally, uses microsecond precision, and stores the time as int64_t (in other words, it will not overflow on you as `millis()` does).
-
-The library is designed to work seamlessly with various RTC device drivers. For example, if you have a DS3231 real-time clock, you
-can use this library to keep the raw, UTC time in DS3231, and deal with time zones and daylight savings conversions on top of that.
-
-## Compatibility
-
-This library is extensively tested on the ESP32-family microcontrollers. It works both with Arduino and raw esp-idf. It also works on RP2040-based Raspberry Pi Pico.
-
-The library is written in standard C++, and the only platform-dependent function is the one behind Uptime::Now().
-
-## Measuring elapsed time
-
-Example usage:
+`roo_time` provides time types for microcontroller C++ code: durations, elapsed
+time, wall-clock timestamps, and calendar dates. It makes units explicit and
+keeps time points separate from durations, so common mistakes become compiler
+errors.
 
 ```cpp
 #include "roo_time.h"
 
 using namespace roo_time;
 
-void loop() {
-  Uptime now = Uptime::Now();  // Carries microseconds since program start.
-  foo(now.inMillis());         // Conveniently convert to various time units, as needed.
-  now += Hours(2);             // Basic arithmetics and convenience construction.
-  // if (now > Hours(2))       // Compile error: don't conflate time instant with duration.
-  
-  // Measuring elapsed time
-  Uptime start = Uptime::Now();
-  // ... do something
-  Duration elapsed = Uptime::Now() - start;
-  if (elapsed > Minutes(2)) {  // This is now OK.
-    // ...
-  }
-  // ...
-}
+// Measure elapsed time.
+Uptime start = Uptime::Now();
+Delay(Millis(25));
+Duration elapsed = Uptime::Now() - start;
+int64_t elapsed_ms = elapsed.inMillis();
+
+// Express a deadline with an explicit unit.
+Uptime deadline = Uptime::Now() + Seconds(2);
+DelayUntil(deadline);
+
+// start + 20;          // Compile error: which unit?
+// start + deadline;    // Compile error: cannot add two time points.
 ```
 
-## Measuring wall time
+The core types store signed 64-bit microseconds and their value operations use no
+heap allocation. The primary target is ESP32 with Arduino or ESP-IDF; RP2040 via
+Arduino, native Linux, and host emulation are also supported. Generic Arduino
+requires regular clock sampling and serialized calls; see
+[clock backends](#clock-backends) for platform-specific behavior.
 
-The library works well with device-specific libraries, via the base abstraction of a 'WallTimeClock'. On ESP chips, you can use
-'SystemClock' to read time from NTP servers via WiFi. For DS3231, you can use a companion library  [roo_time_ds3231](http://github.com/dejwk/roo_time_ds3231).
-If you have another time source, you can use it by implementing a simple adapter:
+| Type | Represents | Typical use |
+| --- | --- | --- |
+| `Duration` | An amount of time | `Millis(250)`, `Seconds(2)`, `Hours(24)` |
+| `Uptime` | A point on the device/process uptime clock | Measuring elapsed time and setting deadlines |
+| `WallTime` | A timestamp relative to the Unix epoch | Reading an RTC or a synchronized system clock |
+| `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
+
+Use uptime for timing work and wall time for dates. `TimeZone` supplies a fixed UTC
+offset; synchronization, RTC communication, and daylight-saving rules are supplied
+by your application or companion libraries.
+
+The examples below cover [durations](#durations-and-deadlines),
+[wall time](#reading-wall-time), [calendar dates](#calendar-dates-and-utc-offsets),
+and [RTC adapters](#connecting-an-rtc). The [reference](#reference-and-contracts)
+collects the detailed ranges, rounding rules, and backend contracts.
+
+## Durations and deadlines
+
+Construct durations in the units you mean, then use arithmetic and comparisons
+without converting everything to raw integers:
+
+```cpp
+Duration timeout = Seconds(2) + Millis(500);
+Duration retry_interval = Millis(250);
+bool shorter = retry_interval < timeout;
+int64_t timeout_ms = timeout.inMillis();  // 2500
+```
+
+`Delay(duration)` blocks for a duration. `DelayUntil(deadline)` blocks until an
+uptime deadline, returning immediately if it has already passed. Scheduling can
+make either wait longer than requested; use them in task/loop context.
+
+Subtracting two uptimes gives a duration. Adding a duration to an uptime gives
+another uptime. The same arithmetic works for wall time, but mixing wall time and
+uptime is a compile-time error.
+
+## Reading wall time
+
+On ESP32 or Linux, `SystemClock` reads the platform's system wall clock:
+
+```cpp
+SystemClock my_clock;
+WallTime now = my_clock.now();
+WallTime tomorrow = now + Hours(24);
+int64_t seconds_since_epoch = now.sinceEpoch().inSeconds();
+```
+
+Configure synchronization separately—for example, NTP on ESP32—and track whether
+the clock is ready. `SystemClock` reads the clock; it does not synchronize it.
+See the [ESP32 NTP example](examples/Esp32NtpTime/Esp32NtpTime.ino) for setup.
+
+RTC drivers can expose the same `WallTimeClock` interface. For a DS3231, the
+companion [roo_time_ds3231](https://github.com/dejwk/roo_time_ds3231) library supplies
+an adapter. Other devices can use a [small adapter of their own](#connecting-an-rtc).
+
+## Calendar dates and UTC offsets
+
+Convert between wall time and calendar fields with `DateTime`:
+
+```cpp
+TimeZone local_offset(Hours(2));  // Fixed UTC+02:00.
+DateTime appointment(2026, 9, 12, 14, 30, 0, 0, local_offset);
+WallTime instant = appointment.wallTime();
+
+// View the same instant in UTC: 12:30 on the same date.
+DateTime utc(instant, timezone::UTC);
+int hour = utc.hour();
+DayOfWeek weekday = utc.dayOfWeek();
+```
+
+For the current local date and time, use `DateTime(my_clock.now(), local_offset)`.
+The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, and
+`micros()`.
+
+Offsets are fixed; they do not automatically follow daylight-saving changes.
+For an application-specific rule, see the [DST example](#daylight-saving-example).
+Also, `DateTime()` means the Unix epoch, not the current time.
+
+## Connecting an RTC
+
+Implement `WallTimeClock::now()` to return the device's UTC timestamp. This
+illustrative adapter assumes a driver with `begin()` and `millisSinceEpoch()`:
 
 ```cpp
 #include "my_rtc_time_lib.h"
@@ -58,7 +125,7 @@ class MyClock : public WallTimeClock {
   void begin() {
     rtc_.begin();
   }
-  
+
   WallTime now() const override {
     // Read time, e.g. as milliseconds since Epoch.
     return WallTime(Millis(rtc_.millisSinceEpoch()));
@@ -70,13 +137,11 @@ class MyClock : public WallTimeClock {
 
 ```
 
-If your device returns date/time components (year, month, day, etc.), you can convert them to 'WallTime' using the
-conversion functions described below. (Also, see the [roo_time_ds3231](http://github.com/dejwk/roo_time_ds3231) library for a concrete illustration).
-
-Once you have an implementation of the 'WallTimeClock', you can use it like this:
+If the driver returns calendar fields instead, construct a UTC `DateTime` and
+return its `wallTime()`. Initialize the adapter according to the driver's needs:
 
 ```cpp
-MyClock my_clock;  // Or, SystemClock, or Ds3231Clock, etc.
+MyClock my_clock;
 
 void setup() {
   my_clock.begin();
@@ -90,35 +155,153 @@ void loop() {
 }
 ```
 
-## Date / time conversion
+## Host emulation
 
-You can specify datetimes, and convert them from and to wall time:
+Host builds support both Arduino and ESP-IDF through roo_testing 2.0. With
+Bazelisk 1.21 or newer, a plain command defaults to Arduino and prints a notice:
 
-```cpp
-// Get a wall time of a specified calendar datetime.
-DateTime independence_day(2021, 7, 4, TimeZone(Hours(-7)));
-WallTime wt = independence_day.wallTime();
+    bazel test ...
+    bazel test ... --config=asan
+    bazel test ... --config=roo_testing_arduino_esp32
+    bazel test ... --config=roo_testing_idf_esp32
+    .roo_testing/bin/test_all_profiles ...
 
-// Get current time in a specified timezone.
-DateTime now(my_clock.now(), TimeZone(Hours(2)));
-foo(now.year(), now.month(), now.day(), now.hour(), now.minute(), now.second());
+The files under .roo_testing are vendored from roo_testing; follow their
+canonical-source headers when refreshing them.
 
-if (now.dayOfWeek() == kFriday) { /* I like Fridays! */ }
+Arduino examples are native runnable targets in their source packages. For
+example:
 
-```
+    bazel run //examples/ElapsedTime:ElapsedTime
 
-## Timezones and daylight savings
+## Reference and contracts
 
-Timezone is just a type-safe duration wrapper:
+The following details define behavior at platform and value boundaries.
 
-```cpp
-static const TimeZone CEST(Hours(2));
-```
+### Clock backends
 
-Daylight saving rules are not explicitly supported, because they are very complicated and change
-often. It is, however, reasonably simple to implement the logic yourself. For example, in Poland,
-summer time begins at 2AM local time on the last Sunday of March, and it ends at 3AM local time
-on the last Sunday of October. The appropriate daylight-savings-aware clock looks like this:
+The primary microcontroller target is ESP32, with Arduino or ESP-IDF. RP2040 is
+supported through Arduino's generic `micros()` backend, with the sampling and
+serialization requirements below. There is no standalone Pico SDK backend.
+Native Linux and roo_testing backends support host use and emulation.
+
+Both uptime acquisition and blocking delays are platform-dependent. `SystemClock`
+also requires the platform's `gettimeofday`; it is exposed on Linux and builds
+that define `ESP_PLATFORM`. Other platforms need an appropriate backend; the
+Arduino metadata's `architectures=*` does not guarantee every core or host OS.
+
+| Backend | Uptime origin and resolution | Sleep and rollover behavior |
+| --- | --- | --- |
+| ESP32 Arduino / ESP-IDF | `esp_timer_get_time()`, microseconds since timer initialization during startup | Native 64-bit counter; light sleep is included after wakeup; deep sleep restarts the application and counter. |
+| Generic Arduino, including RP2040 | Extended low 32 bits of `micros()`; resolution comes from the Arduino core | Call before the first rollover and at intervals strictly shorter than 2^32 microseconds (about 71.6 minutes). Whether sleep is counted depends on the core. |
+| Native Linux | `steady_clock`, relative to the first uptime access; converted to whole microseconds | Independent of wall-clock adjustments. Suspend accounting follows the host steady clock; this is not a boot-time or persisted clock. |
+| roo_testing | Emulated system uptime | Time advancement and host synchronization follow the emulator's configuration. |
+
+`Uptime::Start()` is the zero value in the selected clock's domain. Timestamps
+from different devices, processes, or restarts must not be compared as if they
+shared an origin. A microsecond storage unit does not promise microsecond hardware
+resolution or wakeup accuracy.
+
+The generic Arduino extension can recover one counter wrap between samples. It
+cannot reconstruct missed full periods, including periods before its first call.
+All accesses to its shared clock state must be serialized by the application,
+including accesses inside `Delay` and `DelayUntil`; do not call it concurrently
+from tasks, cores, or an ISR. Native ESP32 and Linux clock acquisition do not use
+that shared extension state. ISR use on ESP32 additionally requires the platform
+API and all called code to be available in the interrupt's execution context.
+
+Value objects are not atomic. Concurrent reads of an unchanged object are fine;
+shared mutation requires synchronization. In particular, `Uptime`'s copy and
+assignment operations accepting `volatile` sources do not make a 64-bit access
+atomic on a smaller MCU or establish synchronization between threads.
+
+### Value ranges and contracts
+
+- `Duration` and `WallTime` store signed 64-bit microseconds. Construction,
+  arithmetic, and conversion require all relevant intermediate and final values
+  to be representable. General arithmetic is unchecked and does not saturate;
+  signed overflow is undefined behavior. Floating inputs must be finite and their
+  scaled values representable; fractional microseconds are truncated toward zero.
+- `Duration::Max()` and `Uptime::Max()` are finite values, not infinity. Adding to
+  either can overflow. Clock-generated uptime is nonnegative; applications must
+  also keep shifted uptimes and differences within the signed 64-bit range.
+- `Duration::toComponents()` is the explicit saturation exception: magnitudes
+  beyond 67,108,863 days, 23:59:59.999999 are clamped to that limit, retaining the
+  sign. Thus large values do not round-trip through components. `FromComponents`
+  requires normalized fields: hours 0–23, minutes/seconds 0–59, microseconds
+  0–999999, and days within the 26-bit field's range.
+- The supported calendar contract is Gregorian years 1–9999. Component inputs
+  must describe a valid date, with hours 0–23, minutes/seconds 0–59 and microseconds
+  0–999999. These preconditions are unchecked: invalid input is not an error value
+  or a request for normalization. Converting wall time must produce a local date
+  in this range after applying the offset. The timestamp storage range is much
+  wider than this calendar contract.
+- `TimeZone` represents a fixed UTC offset, not a geographic zone or a DST rule.
+  Supply whole minutes within the signed 16-bit minute range. Construction
+  truncates sub-minute offsets toward zero and does not validate the range.
+- Wall time follows Unix/POSIX time without distinct leap seconds. `DateTime()`
+  and `WallTime()` represent the Unix epoch, not the current time. `DateTime`
+  equality compares both the instant and offset; compare `wallTime()` when only
+  the instant matters.
+
+`tmStruct()` exports local calendar fields with a zero-based `tm_yday` and
+`tm_isdst = -1`. It does not carry the fixed UTC offset. Passing it to `mktime`
+uses the C library's configured local timezone, which may differ. The `tm`
+constructor uses the supplied calendar fields and explicit `TimeZone`; it does
+not interpret `tm_isdst`, `tm_wday`, or `tm_yday`.
+
+### Delay contracts
+
+`Delay` treats zero and negative durations as no-ops. For positive durations it
+rechecks elapsed uptime after platform waits. ESP32 waits are bounded by the
+largest finite RTOS tick delay, with conversion performed in 64 bits. Generic
+Arduino waits are capped at half the 32-bit microsecond counter period (about
+35.8 minutes), leaving the other half as scheduling margin; the actual interval
+between clock samples must still remain below one full period. Linux and
+roo_testing pass the full remaining duration to their delay APIs. `DelayUntil`
+returns immediately for a deadline at or before the current uptime; otherwise it
+waits until that uptime deadline has been reached or passed.
+
+These guarantees require a progressing clock and the backend's sampling and
+serialization contracts. Coarse RTOS ticks and scheduling can cause overshoot;
+there is no upper bound on wakeup latency. Short waits, including ESP32 waits
+below an RTOS tick, can busy-wait. Use these blocking APIs in normal task/loop context, not from an ISR or a context that
+prevents the underlying clock or scheduler from progressing. They do not configure
+deep sleep or schedule asynchronous callbacks.
+
+### Wall-clock validity and synchronization
+
+`WallTimeClock::now()` returns a value without validity or synchronization status.
+The adapter/application must separately track whether an RTC has been initialized
+or a network clock synchronized. `SystemClock` reads the system wall clock; it
+does not initiate NTP synchronization. It returns the Unix epoch if
+`gettimeofday` fails, which is indistinguishable from a successful epoch reading.
+
+Wall time can jump forward or backward after synchronization or manual adjustment.
+Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not
+handle DST transitions, ambiguous local times, or changes to timezone rules; the
+[DST example](#daylight-saving-example) supplies an application-specific rule.
+
+### Rounding semantics
+
+`Duration` narrowing conversions expose three rounding modes:
+
+- `inXxx()` and `inXxxRoundedDown()` round **toward zero**.
+- `inXxxRoundedUp()` rounds **away from zero**.
+- `inXxxRoundedNearest()` rounds to nearest, with ties (exact half) **away from zero**.
+
+Examples for milliseconds:
+
+- `Micros(1501).inMillisRoundedDown()` is `1`, `Micros(-1501).inMillisRoundedDown()` is `-1`.
+- `Micros(1501).inMillisRoundedUp()` is `2`, `Micros(-1501).inMillisRoundedUp()` is `-2`.
+- `Micros(500).inMillisRoundedNearest()` is `1`, `Micros(-500).inMillisRoundedNearest()` is `-1`.
+
+### Daylight-saving example
+
+Applications can choose a fixed offset based on the timestamp. This example
+implements UTC+01:00 in winter and UTC+02:00 in summer, with transitions at 01:00
+UTC on the last Sundays of March and October. It illustrates one rule rather
+than providing a geographic timezone database or historical rule changes.
 
 ```cpp
 Duration utcOffset(WallTime t) {
@@ -140,75 +323,27 @@ Duration utcOffset(WallTime t) {
 class DSTWatch {
  public:
   DSTWatch(WallTimeClock& clock) : clock_(clock) {}
- 
+
   DateTime nowLocal() {
     WallTime t = clock_.now();
     return DateTime(t, TimeZone(utcOffset(t)));
   }
-  
+
  private:
   WallTimeClock& clock_;
 };
 ```
 
-## Type safety
+### Performance and program size
 
-The library will protect you from making common mistakes, such as mixing up time units,
-mixing up uptime (i.e. the time since the device is running) with wall time (i.e. duration
-since Epoch), and mixing up durations with time points:
+`Duration`, `Uptime`, and `WallTime` each wrap a 64-bit value, and the core value
+operations allocate no heap memory. Optimized value operations can compile like
+equivalent `int64_t` arithmetic. This does not make them as cheap as 32-bit time
+arithmetic on every MCU; 64-bit division and floating-point conversions can be
+significant on smaller targets. Clock acquisition and blocking delays have their
+backend's costs.
 
-```cpp
-my_clock.now() - Uptime::Now();  // ERROR: can't mix up wall time and uptime.
-my_clock.now() - (Uptime::Now() - Uptime::Start());  // Now OK; explicitly converted to an duration.
-                                                  // Returns the wall time of last restart.
-Uptime::Now() + 20;           // ERROR: 20 of what?
-Uptime::Now() + Seconds(20);  // Now OK.
-```
-
-## Rounding semantics
-
-`Duration` narrowing conversions expose three rounding modes:
-
-- `inXxx()` and `inXxxRoundedDown()` round **toward zero**.
-- `inXxxRoundedUp()` rounds **away from zero**.
-- `inXxxRoundedNearest()` rounds to nearest, with ties (exact half) **away from zero**.
-
-Examples for milliseconds:
-
-- `Micros(1501).inMillisRoundedDown()` is `1`, `Micros(-1501).inMillisRoundedDown()` is `-1`.
-- `Micros(1501).inMillisRoundedUp()` is `2`, `Micros(-1501).inMillisRoundedUp()` is `-2`.
-- `Micros(500).inMillisRoundedNearest()` is `1`, `Micros(-500).inMillisRoundedNearest()` is `-1`.
-
-## Performance
-
-The Uptime and WallTime classes are trivial wrappers around int64.
-For such classes, construction/destruction has zero cost, as it is completely
-optimized away. The compiler will generate code that will look exactly as if
-you directly operated on the int64.
-
-## Program size overhead
-
-The compiler is good at omitting stuff you don't use. For example, if you never call any
-date conversion function, it will have zero effect on your binary size. And, because
-of aggressive optimization mentioned above, the cost of using basic functionality
-of WallTime and Uptime is essentially zero in comparison to the equivalent code using
-integer types directly.
-
-## Host emulation
-
-Host builds support both Arduino and ESP-IDF through roo_testing 2.0. With
-Bazelisk 1.21 or newer, a plain command defaults to Arduino and prints a notice:
-
-    bazel test ...
-    bazel test ... --config=asan
-    bazel test ... --config=roo_testing_arduino_esp32
-    bazel test ... --config=roo_testing_idf_esp32
-    .roo_testing/bin/test_all_profiles ...
-
-The files under .roo_testing are vendored from roo_testing; follow their
-canonical-source headers when refreshing them.
-
-Arduino examples are native runnable targets in their source packages. For
-example:
-
-    bazel run //examples/ElapsedTime:ElapsedTime
+Unused functionality can be removed by the compiler/linker when the build enables
+suitable sectioning and garbage collection. Calendar conversion and virtual clock
+adapters have costs when used. Exact flash, RAM, and execution costs depend on the
+toolchain, target, and application; no cross-MCU size or timing bound is promised.

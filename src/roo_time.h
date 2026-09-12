@@ -21,7 +21,8 @@ namespace roo_time {
 /// Represents an amount of time (e.g. 5s, 10min).
 ///
 /// Stored with microsecond precision and 64-bit range. Pass by value.
-/// For rounding semantics, see README section "Rounding semantics".
+/// Arithmetic is unchecked; inputs, intermediate results, and results must fit.
+/// For rounding and component saturation semantics, see README contracts.
 class Duration {
  public:
   /// Calendar-like decomposition of a duration value.
@@ -181,9 +182,11 @@ class Duration {
   }
 
   /// Breaks duration into components (days, hours, minutes, ...).
+  /// Magnitudes above 67,108,863 days, 23:59:59.999999 saturate, preserving sign.
   Components toComponents() const;
 
-  /// Reconstructs duration from components.
+  /// Reconstructs duration from normalized components.
+  /// Requires hours < 24, minutes/seconds < 60, and micros < 1000000.
   static Duration FromComponents(const Components& components);
 
  private:
@@ -437,16 +440,18 @@ inline Duration operator*(int a, const Duration& b) {
   return Micros(a * b.inMicros());
 }
 
-/// Represents an instant relative to process/boot start time.
+/// Represents an instant relative to the selected uptime clock origin.
 ///
-/// Stored with microsecond precision and 64-bit range. May not include sleep
-/// time on some platforms.
+/// Stored in signed 64-bit microseconds; clock resolution and sleep accounting
+/// depend on the backend. See README for origins and concurrency requirements.
 class Uptime {
  public:
-  /// Returns current monotonic process uptime.
+  /// Returns current uptime.
+  /// Generic Arduino: serialize calls and sample before the first wrap, then
+  /// at intervals shorter than 2^32 microseconds. Linux: zero is first access.
   static const Uptime Now();
 
-  /// Returns uptime value at process start.
+  /// Returns zero in the backend clock domain; not a wall-time timestamp.
   static const Uptime Start() { return Uptime(0); }
 
   /// Returns the maximum representable uptime value.
@@ -458,7 +463,8 @@ class Uptime {
   /// Copy constructor.
   Uptime(const Uptime& other) : micros_(other.micros_) {}
 
-  /// Copy constructor for volatile sources.
+  /// Copy constructor for volatile sources; does not provide atomicity or
+  /// synchronization. Shared mutation requires external synchronization.
   Uptime(const volatile Uptime& other) : micros_(other.micros_) {}
 
   /// Assignment operator.
@@ -467,7 +473,7 @@ class Uptime {
     return *this;
   }
 
-  /// Assignment operator for volatile sources.
+  /// Assignment from volatile sources; not atomic or synchronized.
   Uptime& operator=(const volatile Uptime& other) {
     micros_ = other.micros_;
     return *this;
@@ -566,12 +572,15 @@ inline Uptime operator+(const Duration& i, const Uptime& u) {
 
 /// Delays execution for `duration`.
 ///
-/// Negative durations are treated as no-op.
+/// Zero and negative durations are no-ops. Positive waits recheck elapsed uptime
+/// and can overshoot due to scheduling. Requires a progressing clock and its
+/// concurrency/sampling contracts. Call in task/loop context, not from an ISR.
 void Delay(Duration duration);
 
 /// Delays execution until `deadline`.
 ///
-/// If deadline is in the past, returns immediately.
+/// If deadline is at or before now, returns immediately. Otherwise returns at
+/// or after the deadline, subject to the same backend requirements as Delay.
 void DelayUntil(Uptime deadline);
 
 /// Represents absolute wall time since Unix epoch.
@@ -660,6 +669,8 @@ inline WallTime operator+(const Duration& i, const WallTime& t) {
 }
 
 /// Abstract interface for obtaining current wall time.
+/// Validity and synchronization status must be tracked separately by the caller.
+/// Wall time may jump; use Uptime for elapsed measurement and deadlines.
 class WallTimeClock {
  public:
   /// Virtual destructor.
@@ -670,7 +681,8 @@ class WallTimeClock {
 };
 
 #ifdef CTIME_HDR_DEFINED
-/// Wall-time clock backed by `gettimeofday`.
+/// Wall-time clock backed by `gettimeofday`; does not initiate synchronization.
+/// Returns the Unix epoch on failure, without a separate error indication.
 class SystemClock : public WallTimeClock {
  public:
   /// Returns current system wall time.
@@ -682,6 +694,9 @@ class SystemClock : public WallTimeClock {
 };
 #endif
 
+/// Fixed UTC offset in whole signed 16-bit minutes, without DST or zone rules.
+/// Supply a representable whole-minute offset; construction is unchecked and
+/// truncates sub-minute input toward zero.
 class TimeZone {
  public:
   /// Constructs UTC timezone.
@@ -731,10 +746,12 @@ enum Month {
 
 /// Represents wall time decomposed into date/time in a specific time zone.
 ///
+/// Supports valid Gregorian dates in years 1-9999; inputs are not validated or
+/// normalized. Wall-time conversion must also yield a local date in that range.
 /// Does not account for leap seconds.
 class DateTime {
  public:
-  /// Constructs `DateTime` representing current time in UTC.
+  /// Constructs `DateTime` representing the Unix epoch in UTC.
   DateTime() : DateTime(WallTime(), timezone::UTC) {}
 
   /// Constructs `DateTime` at midnight of a date in the specified time zone.
@@ -794,12 +811,14 @@ class DateTime {
   [[nodiscard]] uint16_t dayOfYear() const { return day_of_year_; }
 
 #ifdef CTIME_HDR_DEFINED
-  /// Constructs `DateTime` from C `tm` structure.
+  /// Constructs from valid C `tm` calendar fields in the explicit fixed offset.
+  /// Does not interpret tm_isdst, tm_wday, or tm_yday.
   DateTime(struct tm t, TimeZone tz = timezone::UTC)
       : DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
                  t.tm_sec, 0, tz) {}
 
-  /// Returns this value as a C `tm` structure.
+  /// Returns local calendar fields with zero-based tm_yday and tm_isdst = -1.
+  /// The fixed UTC offset is not carried into the C structure.
   struct tm tmStruct() const {
     return tm{.tm_sec = second_,
               .tm_min = minute_,
