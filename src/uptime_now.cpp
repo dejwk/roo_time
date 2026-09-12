@@ -6,6 +6,8 @@
 
 inline static int64_t __uptime() { return system_time_get_micros(); }
 
+#define ROO_TIME_UPTIME_MONOTONE 1
+
 inline static void __delayMicros(int64_t micros) {
   system_time_delay_micros(micros);
 }
@@ -110,22 +112,18 @@ namespace roo_time {
 
 const Uptime IRAM_ATTR Uptime::Now() { return Uptime(__uptime()); }
 
-#else  // e.g. on Arduino platforms with 32-bit millisecond resolution.
+#else  // Arduino platforms with a wrapping 32-bit microsecond counter.
 
-static int64_t last_reading = 0;
-
-// Offset to make sure the time is monotone.
-static int64_t offset = 0;
+// Calls through this fallback must be serialized by the application. Sample at
+// least once per counter period, including once before its first rollover.
+static uint32_t last_reading = 0;
+static int64_t elapsed_micros = 0;
 
 const Uptime IRAM_ATTR Uptime::Now() {
-  int64_t now = __uptime() + offset;
-  int64_t diff = last_reading - now;
-  if (diff > 0) {
-    offset += diff;
-    now += diff;
-  }
+  uint32_t now = static_cast<uint32_t>(__uptime());
+  elapsed_micros += static_cast<uint32_t>(now - last_reading);
   last_reading = now;
-  return Uptime(now);
+  return Uptime(elapsed_micros);
 }
 
 #endif

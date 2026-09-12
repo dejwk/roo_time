@@ -75,3 +75,19 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+# Compile the production backend inside each test after selecting its platform.
+cc_library(
+    name = "uptime_test_source",
+    textual_hdrs = ["src/uptime_now.cpp"],
+    testonly = True,
+    deps = [":core"],
+)
+
+cc_test(
+    name = "arduino_uptime_test",
+    size = "small",
+    srcs = ["test/arduino_uptime_test.cpp", "test/stubs/Arduino.h"],
+    includes = ["test/stubs"],
+    deps = [":uptime_test_source", "@googletest//:gtest_main"],
+)
