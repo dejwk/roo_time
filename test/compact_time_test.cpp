@@ -8,8 +8,6 @@ namespace roo_time {
 namespace {
 static_assert(sizeof(SmallDuration) == sizeof(int32_t), "Compact duration");
 static_assert(sizeof(SmallTimestamp) == sizeof(uint32_t), "Compact timestamp");
-static_assert(sizeof(Int32Seconds) == sizeof(int32_t),
-              "Helpers retain their count");
 static_assert(sizeof(Duration) == sizeof(int64_t),
               "Shared accessors add no storage");
 static_assert(std::is_trivially_copyable<SmallDuration>::value, "Value type");
@@ -22,16 +20,10 @@ static_assert(std::is_convertible<SmallDuration, Duration>::value,
               "Lossless widening");
 static_assert(!std::is_convertible<Duration, SmallDuration>::value,
               "Explicit narrowing");
-static_assert(std::is_convertible<Int32Seconds, SmallDuration>::value,
-              "Unit conversion");
-static_assert(std::is_convertible<Int32Seconds, Duration>::value,
-              "Unit conversion");
 static_assert(!std::is_convertible<int, SmallDuration>::value,
               "Units required");
 static_assert(!std::is_convertible<uint32_t, SmallTimestamp>::value,
               "Opaque ticks");
-static_assert(std::is_same<decltype(Millis(int32_t{5})), Int32Millis>::value,
-              "Factory type");
 static_assert(std::is_same<decltype(Seconds(0.5)), Duration>::value,
               "Floating compatibility");
 constexpr Duration kLargeSum = Millis(2000000000) + Millis(2000000000);
@@ -39,13 +31,7 @@ static_assert(kLargeSum.inMillis() == 4000000000LL, "Widen before arithmetic");
 constexpr Duration kLargeSeconds = Seconds(3000000);
 static_assert(kLargeSeconds.inMicros() == 3000000000000LL,
               "Widen before scaling");
-static_assert(!std::is_convertible<Int32Micros, SmallDuration>::value,
-              "Fractional milliseconds require explicit narrowing");
-static_assert(!std::is_convertible<IntegerTime<1500>, SmallDuration>::value,
-              "Non-integral millisecond units also require narrowing");
-static_assert(std::is_constructible<SmallDuration, Int32Micros>::value,
-              "Explicit narrowing remains available");
-constexpr SmallDuration kFiveSeconds = Seconds(5);
+constexpr SmallDuration kFiveSeconds = SmallSeconds(5);
 static_assert(kFiveSeconds.inMillis() == 5000,
               "Destination selects compact storage");
 static_assert(
@@ -53,6 +39,48 @@ static_assert(
     "Compact arithmetic preserves its range");
 static_assert(std::is_same<decltype(kFiveSeconds + Millis(5)), Duration>::value,
               "Helper arithmetic widens");
+
+
+template <typename T, typename = void>
+struct CanMakeSmall : std::false_type {};
+template <typename T>
+struct CanMakeSmall<T, std::void_t<decltype(SmallMillis(std::declval<T>())),
+    decltype(SmallSeconds(std::declval<T>())),
+    decltype(SmallMinutes(std::declval<T>())),
+    decltype(SmallHours(std::declval<T>()))>> : std::true_type {};
+static_assert(!CanMakeSmall<double>::value && !CanMakeSmall<float>::value,
+              "Compact factories reject floating counts");
+static_assert(CanMakeSmall<int64_t>::value && CanMakeSmall<uint64_t>::value,
+              "Compact factories accept wide integers");
+static_assert(std::is_same<decltype(Seconds(2)), Duration>::value &&
+              std::is_same<decltype(SmallSeconds(2)), SmallDuration>::value,
+              "Factories have predictable return types");
+static_assert(std::is_same<decltype(SmallSeconds(1) + Seconds(1)), Duration>::value,
+              "Mixed addition widens");
+
+TEST(DurationFactories, CompactUnitsAndBoundaries) {
+  EXPECT_EQ(250, SmallMillis(250).inMillis());
+  EXPECT_EQ(-2000, SmallSeconds(-2).inMillis());
+  EXPECT_EQ(120000, SmallMinutes(2).inMillis());
+  EXPECT_EQ(7200000, SmallHours(2).inMillis());
+  EXPECT_EQ(INT32_MIN, SmallMillis(INT32_MIN).inMillis());
+  EXPECT_EQ(INT32_MAX, SmallMillis(uint64_t{INT32_MAX}).inMillis());
+  EXPECT_EQ(-2147483000, SmallSeconds(-2147483).inMillis());
+  EXPECT_EQ(2145600000, SmallHours(596).inMillis());
+  auto mutable_duration = Seconds(2);
+  mutable_duration += Millis(500);
+  EXPECT_EQ(2500, mutable_duration.inMillis());
+  EXPECT_EQ(Seconds(3), SmallSeconds(1) + Seconds(2));
+  EXPECT_EQ(Seconds(1), Seconds(2) - SmallSeconds(1));
+  EXPECT_LT(SmallSeconds(1), Seconds(2));
+#ifndef NDEBUG
+  EXPECT_DEATH({ (void)SmallMillis(uint64_t{UINT32_MAX}); }, "");
+  EXPECT_DEATH({ (void)SmallSeconds(2147484); }, "");
+  EXPECT_DEATH({ (void)SmallMinutes(-35792); }, "");
+  EXPECT_DEATH({ (void)SmallHours(597); }, "");
+  EXPECT_DEATH({ (void)SmallHours(UINT64_MAX); }, "");
+#endif
+}
 
 SmallTimestamp At(uint32_t millis) { return Uptime::Start() + Millis(millis); }
 
@@ -77,7 +105,7 @@ template <typename A, typename Tuple> void CheckRow(A a, const Tuple &values) {
   std::apply([&](auto... b) { (CheckPair(a, b), ...); }, values);
 }
 
-TEST(IntegerTime, AllUnitPairsAndMixedDurations) {
+TEST(DurationFactories, AllUnitPairsAndMixedDurations) {
   auto values =
       std::make_tuple(Micros(7), Millis(11), Seconds(3), Minutes(2), Hours(1));
   std::apply([&](auto... a) { (CheckRow(a, values), ...); }, values);
@@ -93,7 +121,7 @@ TEST(IntegerTime, AllUnitPairsAndMixedDurations) {
   EXPECT_EQ(1499999, accumulated.inMicros());
 }
 
-TEST(IntegerTime, SharedAccessorsAndConversions) {
+TEST(DurationFactories, SharedAccessorsAndConversions) {
   const auto negative = Micros(-1501);
   EXPECT_EQ(-1501, negative.inMicros());
   EXPECT_EQ(-1, Micros(-1.5).inMicros());
@@ -120,13 +148,13 @@ TEST(IntegerTime, SharedAccessorsAndConversions) {
 }
 
 TEST(SmallDuration, ArithmeticAndExplicitNarrowing) {
-  SmallDuration a = Seconds(2), b = Millis(500);
+  SmallDuration a = SmallSeconds(2), b = SmallMillis(500);
   EXPECT_EQ(2500, (a + b).inMillis());
   EXPECT_EQ(1500, (a - b).inMillis());
   EXPECT_EQ(4000, (a * 2).inMillis());
   EXPECT_EQ(4000, (2 * a).inMillis());
   a += b;
-  a -= Millis(1);
+  a -= SmallMillis(1);
   EXPECT_EQ(2499, a.inMillis());
   const Duration full = Micros(2500999);
   EXPECT_EQ(2500, SmallDuration(full).inMillis());
@@ -185,7 +213,7 @@ TEST(SmallTimestamp, ModularDifferenceAcrossManyOrigins) {
 TEST(CompactTimeDeathTest, RejectsDetectableRangeViolations) {
   EXPECT_DEATH(
       {
-        SmallDuration value = Seconds(3000000);
+        SmallDuration value = SmallSeconds(3000000);
         (void)value;
       },
       "");
@@ -242,7 +270,7 @@ TEST(CompactTimestampShift, FullDurationsAndUnitExpressions) {
   EXPECT_EQ(start, start + Micros(999));
   EXPECT_EQ(-1, ((start + Micros(-1999)) - start).inMillis());
   EXPECT_EQ(5000, ((start + Seconds(5)) - start).inMillis());
-  SmallDuration compact = Millis(250);
+  SmallDuration compact = SmallMillis(250);
   EXPECT_EQ(250, ((start + compact) - start).inMillis());
   auto t = start;
   t += shift;

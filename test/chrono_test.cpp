@@ -14,7 +14,7 @@ TEST(Chrono, UnitsAndPrecision) {
   EXPECT_EQ(-1, FromChrono(std::chrono::nanoseconds(-1999)).inMicros());
   EXPECT_EQ(1250000, FromChrono(std::chrono::duration<double>(1.25)).inMicros());
   EXPECT_EQ(1500000, FromChrono(std::chrono::duration<int, std::ratio<1, 2>>(3)).inMicros());
-  SmallDuration small = Millis(250);
+  SmallDuration small = SmallMillis(250);
   EXPECT_EQ(250000, ToChrono(small).count());
   EXPECT_EQ(small, SmallDuration(FromChrono(std::chrono::milliseconds(250))));
   const Duration maximum = Micros(INT64_MAX), minimum = Micros(INT64_MIN);

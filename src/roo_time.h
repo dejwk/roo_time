@@ -22,7 +22,9 @@ namespace roo_time {
 
 class Duration;
 class SmallDuration;
-template <int64_t MicrosPerUnit, typename Rep> class IntegerTime;
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+constexpr Duration Micros(Rep count);
 
 namespace internal {
 // Empty CRTP base: one implementation of all read-only unit conversions, with
@@ -226,7 +228,9 @@ public:
   static Duration FromComponents(const Components &components);
 
 private:
-  template <int64_t, typename> friend class IntegerTime;
+  template <typename Rep, typename std::enable_if<
+      std::is_integral<Rep>::value, int>::type>
+  friend constexpr Duration Micros(Rep count);
 
   friend constexpr Duration Millis(float millis);
   friend constexpr Duration Seconds(float seconds);
@@ -246,51 +250,26 @@ private:
 /// Backwards compatibility alias. Prefer `Duration` in new code.
 using Interval = Duration;
 
-/// A count in a compile-time unit. Conversion to Duration scales in int64_t.
-/// Rep is an integer type; scaled microseconds must fit int64_t when widened.
-/// Helpers have read-only duration accessors; arithmetic yields Duration.
-template <int64_t MicrosPerUnit, typename Rep = int32_t>
-class IntegerTime
-    : public internal::DurationConversions<IntegerTime<MicrosPerUnit, Rep>> {
-  static_assert(MicrosPerUnit > 0, "The time unit must be positive");
-  static_assert(std::is_integral<Rep>::value && sizeof(Rep) <= sizeof(int64_t),
-                "The count must be an integer of at most 64 bits");
-
-public:
-  constexpr explicit IntegerTime(Rep count) : count_(count) {}
-
-  [[nodiscard]] constexpr int64_t inMicros() const {
-    if (std::is_signed<Rep>::value) {
-      assert(static_cast<int64_t>(count_) >= INT64_MIN / MicrosPerUnit &&
-             static_cast<int64_t>(count_) <= INT64_MAX / MicrosPerUnit);
-    } else {
-      assert(static_cast<uint64_t>(count_) <=
-             static_cast<uint64_t>(INT64_MAX / MicrosPerUnit));
-    }
-    return static_cast<int64_t>(count_) * MicrosPerUnit;
+namespace internal {
+// Check before conversion or multiplication, including unsigned 64-bit inputs.
+template <int64_t Unit, typename Rep>
+constexpr int64_t ScaleTimeCount(Rep count) {
+  static_assert(sizeof(Rep) <= sizeof(int64_t), "At most 64-bit integers");
+  if (std::is_signed<Rep>::value) {
+    assert(static_cast<int64_t>(count) >= INT64_MIN / Unit &&
+           static_cast<int64_t>(count) <= INT64_MAX / Unit);
+  } else {
+    assert(static_cast<uint64_t>(count) <= uint64_t(INT64_MAX / Unit));
   }
+  return static_cast<int64_t>(count) * Unit;
+}
+} // namespace internal
 
-  constexpr operator Duration() const { return Duration(inMicros()); }
-
-  Duration::Components toComponents() const {
-    return static_cast<Duration>(*this).toComponents();
-  }
-
-private:
-  Rep count_;
-};
-
-using Int32Micros = IntegerTime<1, int32_t>;
-using Int32Millis = IntegerTime<1000, int32_t>;
-using Int32Seconds = IntegerTime<1000000, int32_t>;
-using Int32Minutes = IntegerTime<60000000, int32_t>;
-using Int32Hours = IntegerTime<3600000000LL, int32_t>;
-
-/// Retains an integer count in micros until a duration is needed.
+/// Constructs a full duration in microseconds.
 template <typename Rep,
-          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
-inline constexpr IntegerTime<1LL, Rep> Micros(Rep count) {
-  return IntegerTime<1LL, Rep>(count);
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type>
+inline constexpr Duration Micros(Rep count) {
+  return Duration(internal::ScaleTimeCount<1>(count));
 }
 
 /// Floating microseconds are truncated, preserving the original factory
@@ -301,11 +280,11 @@ inline constexpr Duration Micros(Rep count) {
   return Micros(static_cast<int64_t>(count));
 }
 
-/// Retains an integer count in millis until a duration is needed.
+/// Constructs a full duration in millis.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
-inline constexpr IntegerTime<1000LL, Rep> Millis(Rep count) {
-  return IntegerTime<1000LL, Rep>(count);
+inline constexpr Duration Millis(Rep count) {
+  return Micros(internal::ScaleTimeCount<1000LL>(count));
 }
 
 /// Floating input retains the existing full Duration result type.
@@ -318,11 +297,11 @@ inline constexpr Duration Millis(double count) {
   return Duration(static_cast<int64_t>(count * 1000LL));
 }
 
-/// Retains an integer count in seconds until a duration is needed.
+/// Constructs a full duration in seconds.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
-inline constexpr IntegerTime<1000000LL, Rep> Seconds(Rep count) {
-  return IntegerTime<1000000LL, Rep>(count);
+inline constexpr Duration Seconds(Rep count) {
+  return Micros(internal::ScaleTimeCount<1000000LL>(count));
 }
 
 /// Floating input retains the existing full Duration result type.
@@ -335,11 +314,11 @@ inline constexpr Duration Seconds(double count) {
   return Duration(static_cast<int64_t>(count * 1000 * 1000));
 }
 
-/// Retains an integer count in minutes until a duration is needed.
+/// Constructs a full duration in minutes.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
-inline constexpr IntegerTime<60000000LL, Rep> Minutes(Rep count) {
-  return IntegerTime<60000000LL, Rep>(count);
+inline constexpr Duration Minutes(Rep count) {
+  return Micros(internal::ScaleTimeCount<60000000LL>(count));
 }
 
 /// Floating input retains the existing full Duration result type.
@@ -352,11 +331,11 @@ inline constexpr Duration Minutes(double count) {
   return Duration(static_cast<int64_t>(count * 1000 * 1000 * 60));
 }
 
-/// Retains an integer count in hours until a duration is needed.
+/// Constructs a full duration in hours.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
-inline constexpr IntegerTime<3600000000LL, Rep> Hours(Rep count) {
-  return IntegerTime<3600000000LL, Rep>(count);
+inline constexpr Duration Hours(Rep count) {
+  return Micros(internal::ScaleTimeCount<3600000000LL>(count));
 }
 
 /// Floating input retains the existing full Duration result type.
@@ -384,19 +363,6 @@ public:
   constexpr explicit SmallDuration(Duration duration)
       : millis_(internal::CheckedSmallMillis(duration.inMillis())) {}
 
-  /// Unit expressions may select compact storage implicitly. The scaled result
-  /// must fit, even when the original count fits its own representation.
-  template <int64_t Unit, typename Rep,
-            typename std::enable_if<Unit % 1000 == 0, int>::type = 0>
-  constexpr SmallDuration(IntegerTime<Unit, Rep> value)
-      : SmallDuration(static_cast<Duration>(value)) {}
-
-  /// Units that can contain fractional milliseconds require explicit narrowing.
-  template <int64_t Unit, typename Rep,
-            typename std::enable_if<Unit % 1000 != 0, int>::type = 0>
-  constexpr explicit SmallDuration(IntegerTime<Unit, Rep> value)
-      : SmallDuration(static_cast<Duration>(value)) {}
-
   [[nodiscard]] constexpr int64_t inMicros() const {
     return static_cast<int64_t>(millis_) * 1000;
   }
@@ -423,17 +389,37 @@ private:
   int32_t millis_;
 };
 
-namespace internal {
-template <typename T> struct IsDurationLike : std::false_type {};
-template <> struct IsDurationLike<Duration> : std::true_type {};
-template <> struct IsDurationLike<SmallDuration> : std::true_type {};
-template <int64_t Unit, typename Rep>
-struct IsDurationLike<IntegerTime<Unit, Rep>> : std::true_type {};
+/// Constructs compact millis from an integer; scaled milliseconds must fit int32_t.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration SmallMillis(Rep count) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      internal::ScaleTimeCount<1>(count)));
+}
 
-template <typename A, typename B>
-using EnableDurationPair = typename std::enable_if<
-    IsDurationLike<A>::value && IsDurationLike<B>::value, int>::type;
-} // namespace internal
+/// Constructs compact seconds from an integer; scaled milliseconds must fit int32_t.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration SmallSeconds(Rep count) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      internal::ScaleTimeCount<1000>(count)));
+}
+
+/// Constructs compact minutes from an integer; scaled milliseconds must fit int32_t.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration SmallMinutes(Rep count) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      internal::ScaleTimeCount<60000>(count)));
+}
+
+/// Constructs compact hours from an integer; scaled milliseconds must fit int32_t.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration SmallHours(Rep count) {
+  return SmallDuration::Millis(internal::CheckedSmallMillis(
+      internal::ScaleTimeCount<3600000>(count)));
+}
 
 /// Returns true if both durations are equal.
 inline constexpr bool operator==(const Duration &a, const Duration &b) {
@@ -483,60 +469,6 @@ inline constexpr Duration operator*(const Duration &a, int b) {
 /// Multiplies duration by an integer factor.
 inline constexpr Duration operator*(int a, const Duration &b) {
   return Micros(a * b.inMicros());
-}
-
-// All unit combinations share these constrained operators. Mixing a helper or
-// full Duration into arithmetic widens the result before the operation.
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator==(const A &a, const B &b) {
-  return a.inMicros() == b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator!=(const A &a, const B &b) {
-  return a.inMicros() != b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator<(const A &a, const B &b) {
-  return a.inMicros() < b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator>(const A &a, const B &b) {
-  return a.inMicros() > b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator<=(const A &a, const B &b) {
-  return a.inMicros() <= b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr bool operator>=(const A &a, const B &b) {
-  return a.inMicros() >= b.inMicros();
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr Duration operator+(const A &a, const B &b) {
-  return Micros(a.inMicros() + b.inMicros());
-}
-
-template <typename A, typename B, internal::EnableDurationPair<A, B> = 0>
-inline constexpr Duration operator-(const A &a, const B &b) {
-  return Micros(a.inMicros() - b.inMicros());
-}
-
-template <typename D, typename std::enable_if<
-                          internal::IsDurationLike<D>::value, int>::type = 0>
-inline constexpr Duration operator*(const D &value, int factor) {
-  return Micros(value.inMicros() * factor);
-}
-
-template <typename D, typename std::enable_if<
-                          internal::IsDurationLike<D>::value, int>::type = 0>
-inline constexpr Duration operator*(int factor, const D &value) {
-  return Micros(value.inMicros() * factor);
 }
 
 inline constexpr SmallDuration operator+(SmallDuration a, SmallDuration b) {

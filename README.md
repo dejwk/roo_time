@@ -70,10 +70,10 @@ uptime is a compile-time error.
 ## Compact timing values (prototype)
 
 `SmallDuration` and `SmallTimestamp` store millisecond timing values in four bytes
-each. Unit expressions such as `Millis(250)` convert to either duration type:
+each. Dedicated integer factories make compact storage explicit:
 
 ```cpp
-SmallDuration interval = Millis(250);
+SmallDuration interval = SmallMillis(250);
 SmallTimestamp start = SmallTimestamp::Now();
 SmallTimestamp deadline = start + interval;
 SmallDuration remaining = deadline - SmallTimestamp::Now();
@@ -83,7 +83,7 @@ Duration full_remaining = remaining;  // Implicit, lossless widening.
 Compact timestamps wrap. Use their ordering and differences only within a window
 strictly shorter than 2^31 milliseconds (about 24.86 days). See
 [compact timing contracts](#compact-timing-contracts) and
-[integer unit expressions](#integer-unit-expressions) for range and compatibility
+[duration factories](#duration-factories) for range and compatibility
 details.
 
 ## Reading wall time
@@ -421,48 +421,32 @@ Duration full = Seconds(2.5);
 SmallDuration compact(full);
 ```
 
-### Integer unit expressions
+### Duration factories
 
-Integer factories now return `IntegerTime<MicrosPerUnit, Rep>`, which retains the
-original integer count and unit. For example, `Seconds(int32_t{5})` returns
-`Int32Seconds`. The aliases `Int32Micros`, `Int32Millis`, `Int32Seconds`,
-`Int32Minutes`, and `Int32Hours` use the same template. Floating-point factories
-continue to return `Duration`.
+`Micros`, `Millis`, `Seconds`, `Minutes`, and `Hours` always return `Duration`,
+including with `auto`. Integer counts scale in 64 bits; floating inputs truncate
+fractional microseconds toward zero.
 
-Whole-millisecond unit expressions convert implicitly to either duration type,
-letting the destination select storage. Units that can contain fractional
-milliseconds require explicit compact narrowing, for example
-`SmallDuration(Micros(999))`, which truncates to zero milliseconds. Conversion to `Duration` scales in 64 bits; conversion
-to `SmallDuration` requires the millisecond value to fit and truncates fractional
-milliseconds. Range violations are caller errors, with debug assertions for
-helper widening, compact narrowing, and compact arithmetic.
+`SmallMillis`, `SmallSeconds`, `SmallMinutes`, and `SmallHours` accept integers
+only and return `SmallDuration`. Scaled milliseconds must fit signed 32 bits;
+range violations are caller errors checked with debug assertions. There is no
+`SmallMicros`: use explicit narrowing for intentional precision loss.
 
 ```cpp
-Duration long_interval = Seconds(3'000'000);  // Fits in full precision.
-SmallDuration short_interval = Seconds(5);   // 5000 milliseconds.
-Duration total = Millis(2'000'000'000) + Millis(2'000'000'000);
-// SmallDuration too_large = Seconds(3'000'000);  // Outside the compact range.
+auto timeout = Seconds(2);           // Duration, mutable.
+auto interval = SmallSeconds(2);     // SmallDuration.
+SmallDuration fractional(Seconds(0.5));  // Explicit narrowing: 500 ms.
+Duration widened = interval;         // Implicit, lossless widening.
 ```
 
-Arithmetic involving a unit expression or full `Duration` produces `Duration`;
-only arithmetic between compact durations (or compact duration multiplication by
-an integer) stays compact. `SmallTimestamp` shifts accept `Duration`, compact durations, and unit expressions,
-including sums such as `start + (Seconds(1) + Millis(500))`. The shift truncates
-fractional milliseconds toward zero and must fit signed 32-bit milliseconds.
-The result remains a wrapping `SmallTimestamp`. Storing a full `Duration` in a
-`SmallDuration` still requires explicit narrowing.
+Arithmetic between compact durations stays compact; mixing with `Duration`
+returns `Duration`. Compact multiplication by an integer stays compact.
 
-All duration-like types share the `inMillis()`, `inSeconds()`, rounding, and
-floating-point accessors through a stateless base template. No unit-pair
-specializations or virtual methods are needed.
-
-This changes the type deduced by `auto`: `auto interval = Seconds(2)` is a
-read-only unit expression with duration accessors; use `Duration interval =
-Seconds(2)` for a mutable accumulator. Templates requiring identical argument
-types, such as `std::min`, and conditional expressions mixing different unit
-helpers may need explicit `Duration` conversions. Code depending on the exact
-factory return type also needs updating. This prototype is not a drop-in
-return-type-compatible change.
+The former integer-expression template and its Int32 unit aliases have been
+removed. Replace compact initializers such as `SmallDuration d = Seconds(2)`
+with `SmallDuration d = SmallSeconds(2)` or explicit `SmallDuration(Seconds(2))`.
+Full-duration narrowing remains explicit. Timestamp shifts accept either duration
+size and truncate fractional milliseconds, with a signed 32-bit shift limit.
 
 ### Performance and program size
 

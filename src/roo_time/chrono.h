@@ -23,7 +23,7 @@
 namespace roo_time {
 
 /// Converts a roo_time duration to a standard duration (microseconds by default).
-/// Accepts SmallDuration and unit helpers through lossless widening to Duration.
+/// Accepts SmallDuration through lossless widening to Duration.
 /// Integer destination units truncate toward zero. All duration_cast intermediate
 /// and final values must be representable; no saturation or range checks occur.
 template <typename ChronoDuration = std::chrono::microseconds>
