@@ -638,7 +638,9 @@ public:
   /// Truncates uptime to milliseconds and retains its low 32 bits.
   SmallTimestamp(Uptime uptime)
       : millis_(static_cast<uint32_t>(uptime.inMillis())) {}
-  static SmallTimestamp Now() { return Uptime::Now(); }
+  /// Reads the platform millisecond clock directly, without extending micros().
+  /// Generic Arduino uses millis(); see README for clock-domain differences.
+  static SmallTimestamp Now();
 
   /// Shift by a duration, truncating to milliseconds; the shift must fit int32_t.
   SmallTimestamp &operator+=(Duration duration) {

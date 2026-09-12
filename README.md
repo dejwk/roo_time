@@ -399,9 +399,19 @@ class DSTWatch {
 opaque unsigned 32-bit millisecond timestamp. Each occupies four bytes:
 
 `Uptime` converts implicitly to `SmallTimestamp`, truncating to milliseconds and
-retaining the low 32 bits. `SmallTimestamp::Now()` uses that same conversion.
-There is no absolute-time accessor or recoverable epoch on a compact timestamp.
-The clock backend's existing sampling and concurrency requirements still apply.
+retaining the low 32 bits. `SmallTimestamp::Now()` reads the backend directly:
+ESP32, Pico, Linux, and roo_testing truncate their native microsecond clocks to
+milliseconds and retain the low 32 bits, sharing Uptime's origin and sleep behavior.
+Generic Arduino uses `millis()` directly, without 64-bit arithmetic or the shared
+`micros()` extension. Compact reads need no periodic sampling and do not maintain
+the extension used by `Uptime::Now()`. Concurrency and sleep behavior follow the
+Arduino core's `millis()` implementation.
+
+On generic Arduino, use compact readings consistently for a timing operation:
+`millis()` and extended `micros()` may differ in resolution, rounding, and sleep
+accounting. Converting Uptime does not necessarily produce the same clock reading,
+especially if its sampling contract was violated. There is no absolute-time
+accessor or recoverable epoch on a compact timestamp.
 
 Timestamp shifts wrap modulo 2^32. Ordering and subtraction use the closer signed
 difference, so a tick value of zero follows `0xFFFFFFFF`. The caller must ensure

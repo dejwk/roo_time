@@ -147,6 +147,20 @@ const Uptime IRAM_ATTR Uptime::Now() {
 
 #endif
 
+SmallTimestamp IRAM_ATTR SmallTimestamp::Now() {
+  SmallTimestamp result;
+#if ROO_TIME_UPTIME_MONOTONE
+  // Native counters need no software extension. Keep the uptime clock's origin
+  // and sleep accounting, then truncate before retaining the low 32 bits.
+  result.millis_ = static_cast<uint32_t>(__uptime() / 1000);
+#else
+  // Arduino already maintains a millisecond counter. Avoid 64-bit arithmetic
+  // and the shared micros() rollover-extension state entirely.
+  result.millis_ = static_cast<uint32_t>(millis());
+#endif
+  return result;
+}
+
 void IRAM_ATTR Delay(Duration duration) {
   if (duration.inMicros() <= 0) return;
   const Uptime start = Uptime::Now();

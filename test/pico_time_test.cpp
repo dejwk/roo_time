@@ -36,3 +36,13 @@ TEST(PicoTime, NativeCounterAndLongSleep) {
   DelayUntil(deadline);
   EXPECT_EQ(1u, calls);
 }
+
+TEST(PicoTime, CompactClockTruncatesBeforeWrapping) {
+  using namespace roo_time;
+  counter = 0xffffffffULL * 1000 + 999;
+  auto last = SmallTimestamp::Now();
+  EXPECT_EQ(SmallTimestamp(Uptime::Now()), last);
+  counter = 0x100000000ULL * 1000;
+  EXPECT_EQ(SmallTimestamp(), SmallTimestamp::Now());
+  EXPECT_EQ(1, (SmallTimestamp::Now() - last).inMillis());
+}

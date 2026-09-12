@@ -44,6 +44,7 @@ void ets_delay_us(uint32_t micros) {
   RecordDelay(micros);
   counter += micros;
 }
+uint32_t millis() { return static_cast<uint32_t>(counter / 1000); }
 uint32_t micros() { return static_cast<uint32_t>(counter++); }
 void delay(uint32_t millis) {
   ++coarse_waits;
@@ -120,3 +121,15 @@ TEST(Delay, LongWaitRespectsBackendRange) {
   EXPECT_LE(largest_delay, limit);
 }
 #endif
+
+TEST(SmallTimestampBackend, NativeMillisecondsWrapAndTruncate) {
+  using namespace roo_time;
+  const auto saved = counter;
+  counter = 0xffffffffLL * 1000 + 999;
+  auto last = SmallTimestamp::Now();
+  EXPECT_EQ(SmallTimestamp(Uptime::Start() + Millis(0xffffffffLL)), last);
+  counter = 0x100000000LL * 1000;
+  EXPECT_EQ(SmallTimestamp(), SmallTimestamp::Now());
+  EXPECT_EQ(1, (SmallTimestamp::Now() - last).inMillis());
+  counter = saved;
+}

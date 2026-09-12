@@ -13,7 +13,11 @@
 
 TEST(LinuxUptime, RelativeMonotonicClockAndConcurrentReaders) {
   using namespace roo_time;
+  // Compact access must initialize the same process-relative origin.
+  auto compact_start = SmallTimestamp::Now();
   auto start = Uptime::Now();
+  EXPECT_GE(SmallTimestamp(start), compact_start);
+  EXPECT_GE(SmallTimestamp::Now(), SmallTimestamp(start));
   EXPECT_GE(start, Uptime::Start());
   EXPECT_LT(start - Uptime::Start(), Seconds(5));
   std::this_thread::sleep_for(std::chrono::milliseconds(2));
