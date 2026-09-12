@@ -110,6 +110,8 @@ cc_test(
     )
     for name, backend in [
         ("idf_delay_test", "TEST_IDF_DELAY"),
+        ("idf_16bit_delay_test", "TEST_16BIT_TICKS"),
+        ("generic_arduino_delay_test", "TEST_GENERIC_ARDUINO_DELAY"),
         ("arduino_esp32_delay_test", "TEST_ARDUINO_ESP32_DELAY"),
         ("emulated_delay_test", "TEST_EMULATED_DELAY"),
     ]

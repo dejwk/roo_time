@@ -12,37 +12,21 @@ inline static void __delayMicros(int64_t micros) {
   system_time_delay_micros(micros);
 }
 
-#elif defined(ESP32)
-
-#include <Arduino.h>
-
-#include "esp_attr.h"
-
-extern "C" {
-int64_t esp_timer_get_time();
-}
-
-inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
-
-#define ROO_TIME_UPTIME_MONOTONE 1
-
-inline static void __delayMicros(int64_t micros) {
-  if (micros < 0) {
-    return;
-  } else if (micros < 2000) {
-    delayMicroseconds(micros);
-  } else {
-    delay(micros / 1000);
-    delayMicroseconds(micros % 1000);
-  }
-}
-
-#elif defined(ESP_PLATFORM)
+#elif defined(ESP32) || defined(ESP_PLATFORM)
 
 #include <esp_attr.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+
+#if defined(ESP32)
+#include <Arduino.h>
+inline static void __busyWaitMicros(uint32_t micros) {
+  delayMicroseconds(micros);
+}
+#else
 #include <rom/ets_sys.h>
+inline static void __busyWaitMicros(uint32_t micros) { ets_delay_us(micros); }
+#endif
 
 extern "C" {
 int64_t esp_timer_get_time();
@@ -53,13 +37,20 @@ inline static IRAM_ATTR int64_t __uptime() { return esp_timer_get_time(); }
 #define ROO_TIME_UPTIME_MONOTONE 1
 
 inline static void __delayMicros(int64_t micros) {
-  if (micros < 0) {
-    return;
-  } else if (micros < 2000) {
-    ets_delay_us(micros);
+  // ESP32 uses at most 32-bit ticks. Avoid the indefinite-wait sentinel and
+  // perform conversion in 64 bits rather than overflowing pdMS_TO_TICKS.
+  constexpr uint64_t kMaxDelayMicros =
+      (static_cast<uint64_t>(portMAX_DELAY) - 1) * 1000000 /
+      configTICK_RATE_HZ;
+  if (static_cast<uint64_t>(micros) > kMaxDelayMicros) {
+    micros = kMaxDelayMicros;
+  }
+  const TickType_t ticks = static_cast<TickType_t>(
+      static_cast<uint64_t>(micros) * configTICK_RATE_HZ / 1000000);
+  if (micros < 2000 || ticks == 0) {
+    __busyWaitMicros(static_cast<uint32_t>(micros));
   } else {
-    vTaskDelay(pdMS_TO_TICKS(micros / 1000));
-    ets_delay_us(micros % 1000);
+    vTaskDelay(ticks);
   }
 }
 
@@ -70,6 +61,10 @@ inline static void __delayMicros(int64_t micros) {
 inline static int64_t __uptime() { return micros(); }
 
 inline static void __delayMicros(int64_t micros) {
+  // Sample at half the 32-bit counter period, leaving half a period of margin
+  // for scheduling delays. The resulting millisecond argument also fits 32 bits.
+  constexpr int64_t kMaxDelayMicros = int64_t{1} << 31;
+  if (micros > kMaxDelayMicros) micros = kMaxDelayMicros;
   if (micros < 0) {
     return;
   } else if (micros < 2000) {
@@ -136,10 +131,9 @@ void IRAM_ATTR Delay(Duration duration) {
   const Uptime start = Uptime::Now();
   Duration remaining = duration;
   for (;;) {
-    // Bound platform argument widths and sample wrapping counters frequently.
-    const int64_t chunk = remaining.inMicros() < 1000000
-                              ? remaining.inMicros() : 1000000;
-    __delayMicros(chunk);
+    // Each backend bounds its own wait only where required by counter or API
+    // limits. Recheck elapsed time even if a coarse wait returned early.
+    __delayMicros(remaining.inMicros());
     const Duration elapsed = Uptime::Now() - start;
     if (elapsed >= duration) return;
     remaining = duration - elapsed;
