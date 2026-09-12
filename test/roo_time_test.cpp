@@ -1,4 +1,5 @@
 #include <limits>
+#include <type_traits>
 
 #include "gtest/gtest.h"
 
@@ -178,7 +179,7 @@ TEST(DateTime, FromDateUTC) {
 }
 
 TEST(DateTime, FromDateCest) {
-  DateTime d(2020, 05, 24, TimeZone(Hours(2)));
+  DateTime d(2020, 05, 24, UtcOffset(Hours(2)));
   EXPECT_EQ(2020, d.year());
   EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(24, d.day());
@@ -188,7 +189,7 @@ TEST(DateTime, FromDateCest) {
 }
 
 TEST(DateTime, FromDateTimeCest) {
-  DateTime d(2020, 05, 25, 23, 57, 31, 1, TimeZone(Hours(2)));
+  DateTime d(2020, 05, 25, 23, 57, 31, 1, UtcOffset(Hours(2)));
   EXPECT_EQ(2020, d.year());
   EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(25, d.day());
@@ -198,7 +199,7 @@ TEST(DateTime, FromDateTimeCest) {
 }
 
 TEST(DateTime, FromUnixCest) {
-  DateTime d(WallTime(Micros(1590443851000001)), TimeZone(Hours(2)));
+  DateTime d(WallTime(Micros(1590443851000001)), UtcOffset(Hours(2)));
   EXPECT_EQ(2020, d.year());
   EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(25, d.day());
@@ -209,12 +210,12 @@ TEST(DateTime, FromUnixCest) {
 
 TEST(DateTime, ComparisonSemantics) {
   DateTime same_instant_different_tz(WallTime(Micros(1590443851000001)),
-                                     TimeZone(Hours(2)));
+                                     UtcOffset(Hours(2)));
   DateTime same_instant_utc(WallTime(Micros(1590443851000001)), timezone::UTC);
   EXPECT_NE(same_instant_different_tz, same_instant_utc);
 
   DateTime same_tz_different_instant(WallTime(Micros(1590443851000002)),
-                                     TimeZone(Hours(2)));
+                                     UtcOffset(Hours(2)));
   EXPECT_NE(same_instant_different_tz, same_tz_different_instant);
 }
 
@@ -249,7 +250,7 @@ TEST(DateTime, NegativeEpochRoundTrip) {
   for (int64_t micros : {-86400000001LL, -86400000000LL, -86399999999LL,
                          -1LL, 0LL, 1LL}) {
     for (int offset_hours : {-12, 0, 14}) {
-      TimeZone tz(Hours(offset_hours));
+      UtcOffset tz(Hours(offset_hours));
       WallTime wall(Micros(micros));
       DateTime date(wall, tz);
       DateTime rebuilt(date.year(), date.month(), date.day(), date.hour(),
@@ -277,3 +278,21 @@ TEST(DateTime, TmDayOfYear) {
   EXPECT_EQ(364, DateTime(2023, 12, 31, timezone::UTC).tmStruct().tm_yday);
 }
 #endif
+
+// Check source compatibility without emitting a warning from the test itself.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+static_assert(std::is_same<roo_time::TimeZone, roo_time::UtcOffset>::value,
+              "The old name must remain an alias of UtcOffset");
+#pragma GCC diagnostic pop
+
+TEST(UtcOffset, ConstructionAndDateTimeIntegration) {
+  using namespace roo_time;
+  EXPECT_EQ(Micros(0), UtcOffset().offset());
+  constexpr UtcOffset offset(Minutes(330));
+  static_assert(offset.offset().inMinutes() == 330, "constexpr construction");
+  DateTime date(2026, 9, 12, offset);
+  EXPECT_EQ(Minutes(330), date.timeZone().offset());
+  EXPECT_EQ(date, DateTime(date.wallTime(), offset));
+  EXPECT_EQ(Micros(0), timezone::UTC.offset());
+}

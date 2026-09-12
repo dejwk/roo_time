@@ -114,11 +114,11 @@ constexpr Int floor_mod(Int k, Int n) {
 
 }  // namespace
 
-DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz)
+DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, UtcOffset tz)
     : DateTime(year, month, day, 0, 0, 0, 0, tz) {}
 
 DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
-                   uint8_t minute, uint8_t second, uint32_t micros, TimeZone tz)
+                   uint8_t minute, uint8_t second, uint32_t micros, UtcOffset tz)
     : tz_(tz),
       year_(year),
       month_(month),
@@ -134,7 +134,7 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
   walltime_ = WallTime(Micros(t) - tz.offset());
 }
 
-DateTime::DateTime(WallTime wall_time, TimeZone tz)
+DateTime::DateTime(WallTime wall_time, UtcOffset tz)
     : walltime_(wall_time), tz_(tz) {
   Duration sinceEpochTz = wall_time.sinceEpoch() + tz.offset();
   constexpr int64_t kMicrosPerDay = 86400000000LL;

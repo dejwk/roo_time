@@ -697,16 +697,16 @@ class SystemClock : public WallTimeClock {
 /// Fixed UTC offset in whole signed 16-bit minutes, without DST or zone rules.
 /// Supply a representable whole-minute offset; construction is unchecked and
 /// truncates sub-minute input toward zero.
-class TimeZone {
+class UtcOffset {
  public:
-  /// Constructs UTC timezone.
-  TimeZone() : offset_minutes_(0) {}
+  /// Constructs a zero UTC offset.
+  UtcOffset() : offset_minutes_(0) {}
 
-  /// Creates time zone with specified UTC offset.
-  constexpr explicit TimeZone(Duration offset)
+  /// Constructs a fixed UTC offset.
+  constexpr explicit UtcOffset(Duration offset)
       : offset_minutes_(offset.inMinutes()) {}
 
-  /// Returns UTC offset of this time zone.
+  /// Returns this fixed offset as a duration.
   [[nodiscard]] constexpr Duration offset() const {
     return Minutes(offset_minutes_);
   }
@@ -715,8 +715,11 @@ class TimeZone {
   int16_t offset_minutes_;
 };
 
+/// Deprecated compatibility name. Prefer UtcOffset for fixed UTC offsets.
+using TimeZone [[deprecated("Use UtcOffset instead")]] = UtcOffset;
+
 namespace timezone {
-constexpr TimeZone UTC = TimeZone(Micros(0));
+constexpr UtcOffset UTC = UtcOffset(Micros(0));
 }
 
 enum DayOfWeek {
@@ -759,7 +762,7 @@ class DateTime {
   /// @param year Four-digit year.
   /// @param month Month in [1, 12].
   /// @param day Day in [1, max_day_of_month].
-  DateTime(uint16_t year, uint8_t month, uint8_t day, TimeZone tz);
+  DateTime(uint16_t year, uint8_t month, uint8_t day, UtcOffset tz);
 
   /// Constructs date/time in the specified time zone.
   ///
@@ -772,16 +775,16 @@ class DateTime {
   /// @param micros Microsecond fraction in [0, 999999].
   /// @param tz Time zone to interpret the components in.
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
-           uint8_t minute, uint8_t second, uint32_t micros, TimeZone tz);
+           uint8_t minute, uint8_t second, uint32_t micros, UtcOffset tz);
 
   /// Constructs `DateTime` for `wallTime` in time zone `tz`.
-  DateTime(WallTime wallTime, TimeZone tz);
+  DateTime(WallTime wallTime, UtcOffset tz);
 
   /// Returns `WallTime` corresponding to this `DateTime`.
   [[nodiscard]] WallTime wallTime() const { return walltime_; }
 
-  /// Returns time zone of this `DateTime`.
-  [[nodiscard]] TimeZone timeZone() const { return tz_; }
+  /// Returns the fixed UTC offset of this `DateTime`.
+  [[nodiscard]] UtcOffset timeZone() const { return tz_; }
 
   /// Returns four-digit year.
   [[nodiscard]] int16_t year() const { return year_; }
@@ -813,7 +816,7 @@ class DateTime {
 #ifdef CTIME_HDR_DEFINED
   /// Constructs from valid C `tm` calendar fields in the explicit fixed offset.
   /// Does not interpret tm_isdst, tm_wday, or tm_yday.
-  DateTime(struct tm t, TimeZone tz = timezone::UTC)
+  DateTime(struct tm t, UtcOffset tz = timezone::UTC)
       : DateTime(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
                  t.tm_sec, 0, tz) {}
 
@@ -834,7 +837,7 @@ class DateTime {
 
  private:
   WallTime walltime_;
-  TimeZone tz_;
+  UtcOffset tz_;
   int16_t year_;
   uint8_t month_;
   uint8_t day_;

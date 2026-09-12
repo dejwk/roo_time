@@ -37,7 +37,7 @@ requires regular clock sampling and serialized calls; see
 | `WallTime` | A timestamp relative to the Unix epoch | Reading an RTC or a synchronized system clock |
 | `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
 
-Use uptime for timing work and wall time for dates. `TimeZone` supplies a fixed UTC
+Use uptime for timing work and wall time for dates. `UtcOffset` supplies a fixed UTC
 offset; synchronization, RTC communication, and daylight-saving rules are supplied
 by your application or companion libraries.
 
@@ -90,7 +90,7 @@ an adapter. Other devices can use a [small adapter of their own](#connecting-an-
 Convert between wall time and calendar fields with `DateTime`:
 
 ```cpp
-TimeZone local_offset(Hours(2));  // Fixed UTC+02:00.
+UtcOffset local_offset(Hours(2));  // Fixed UTC+02:00.
 DateTime appointment(2026, 9, 12, 14, 30, 0, 0, local_offset);
 WallTime instant = appointment.wallTime();
 
@@ -103,6 +103,10 @@ DayOfWeek weekday = utc.dayOfWeek();
 For the current local date and time, use `DateTime(my_clock.now(), local_offset)`.
 The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, and
 `micros()`.
+
+`TimeZone` remains available as a deprecated alias for `UtcOffset`; existing
+code continues to compile with a deprecation warning. The `timeZone()` accessor
+and `timezone::UTC` constant retain their existing names.
 
 Offsets are fixed; they do not automatically follow daylight-saving changes.
 For an application-specific rule, see the [DST example](#daylight-saving-example).
@@ -236,7 +240,7 @@ atomic on a smaller MCU or establish synchronization between threads.
   or a request for normalization. Converting wall time must produce a local date
   in this range after applying the offset. The timestamp storage range is much
   wider than this calendar contract.
-- `TimeZone` represents a fixed UTC offset, not a geographic zone or a DST rule.
+- `UtcOffset` represents a fixed UTC offset, not a geographic zone or a DST rule.
   Supply whole minutes within the signed 16-bit minute range. Construction
   truncates sub-minute offsets toward zero and does not validate the range.
 - Wall time follows Unix/POSIX time without distinct leap seconds. `DateTime()`
@@ -247,7 +251,7 @@ atomic on a smaller MCU or establish synchronization between threads.
 `tmStruct()` exports local calendar fields with a zero-based `tm_yday` and
 `tm_isdst = -1`. It does not carry the fixed UTC offset. Passing it to `mktime`
 uses the C library's configured local timezone, which may differ. The `tm`
-constructor uses the supplied calendar fields and explicit `TimeZone`; it does
+constructor uses the supplied calendar fields and explicit `UtcOffset`; it does
 not interpret `tm_isdst`, `tm_wday`, or `tm_yday`.
 
 ### Delay contracts
@@ -326,7 +330,7 @@ class DSTWatch {
 
   DateTime nowLocal() {
     WallTime t = clock_.now();
-    return DateTime(t, TimeZone(utcOffset(t)));
+    return DateTime(t, UtcOffset(utcOffset(t)));
   }
 
  private:
