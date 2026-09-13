@@ -12,7 +12,69 @@ cc_library(
     deps = [
         ":core",
         ":default_uptime_now",
+        ":format",
     ],
+)
+
+cc_library(
+    name = "format",
+    srcs = ["src/roo_time/format.cpp"],
+    hdrs = ["src/roo_time/format.h"],
+    visibility = ["//visibility:public"],
+    deps = [":core", "@roo_backport"] + select({
+        "@roo_testing//roo_testing/platforms:is_arduino": [
+            "@roo_testing//roo_testing/frameworks/arduino-esp32/cores/esp32",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "format_portable",
+    testonly = True,
+    srcs = ["src/roo_time/format.cpp"],
+    hdrs = ["src/roo_time/format.h"],
+    copts = ["-DROO_TIME_HAS_STRFTIME=0"],
+    deps = [":core", "@roo_backport"] + select({
+        "@roo_testing//roo_testing/platforms:is_arduino": [
+            "@roo_testing//roo_testing/frameworks/arduino-esp32/cores/esp32",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/format_test.cpp"],
+        deps = [backend, "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("format_test", ":format"),
+        ("format_portable_test", ":format_portable"),
+    ]
+]
+
+cc_test(
+    name = "format_no_string_test",
+    size = "small",
+    srcs = ["test/format_no_string_test.cpp"],
+    deps = [":format_portable"],
+)
+
+cc_test(
+    name = "format_arduino_test",
+    size = "small",
+    srcs = [
+        "src/roo_time/format.cpp",
+        "src/roo_time/format.h",
+        "test/format_arduino_test.cpp",
+        "test/stubs/string/WString.h",
+    ],
+    copts = ["-UARDUINO", "-DROO_TIME_HAS_STRFTIME=0"],
+    includes = ["test/stubs/string"],
+    deps = [":core"],
 )
 
 cc_library(

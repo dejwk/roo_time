@@ -132,6 +132,136 @@ Offsets are fixed; they do not automatically follow daylight-saving changes.
 For an application-specific rule, see the [DST example](#daylight-saving-example).
 Also, `DateTime()` means the Unix epoch, not the current time.
 
+## Formatting and parsing calendar dates
+
+Include `roo_time/format.h` for allocation-free buffer formatting, strict parsing,
+and optional string conveniences. The core `roo_time.h` remains independent of
+this header. Bazel users can depend on `:format` directly or on `:roo_time`.
+The view overloads use `roo_backport`.
+
+```cpp
+#include "roo_time/format.h"
+
+using namespace roo_time;
+DateTime appointment(2026, 9, 12, 14, 30, 0, 42, UtcOffset(Hours(2)));
+char buffer[48];
+FormatResult formatted = FormatDateTime(
+    appointment, "%FT%T.%f%:z", buffer, sizeof(buffer));
+// On success: 2026-09-12T14:30:00.000042+02:00
+
+DateTime parsed;
+ParseResult status = ParseDateTime(
+    "2026-09-12 14:30", 16, "%F %H:%M", UtcOffset(Hours(2)), &parsed);
+if (status.status == TextStatus::kOk) {
+  WallTime instant = parsed.wallTime();
+  // Use instant...
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+// Neither view needs a terminating NUL; both are consumed within their bounds.
+status = ParseDateTime(roo::string_view("2026-09-12"), "%F",
+                      timezone::UTC, &parsed);
+#endif
+
+#if ROO_TIME_HAS_STD_STRING
+std::string text = FormatDateTime(appointment, "%F %T");
+#endif
+
+#if defined(ARDUINO)
+String arduino_text = FormatDateTimeArduino(appointment, "%F %T");
+#endif
+```
+
+The portable format language is ASCII and independent of locale and the process
+timezone:
+
+| Directive | Formatting | Parsing |
+| --- | --- | --- |
+| `%Y` | Four-digit year | Exactly four digits, 0001–9999 |
+| `%m`, `%d` | Two-digit month and day | Exactly two digits, validated Gregorian date |
+| `%H`, `%M`, `%S` | Two-digit hour, minute, second | Exactly two digits, 00–23 / 00–59 / 00–59 |
+| `%f` | Six-digit microseconds | One to six digits, scaled to microseconds; extra digits rejected |
+| `%z`, `%:z` | `+hhmm` / `+hh:mm`, including positive zero | Same syntax, or `Z` for UTC |
+| `%F`, `%T` | `%Y-%m-%d` / `%H:%M:%S` | Same expansions |
+| `%%` | Literal `%` | Literal `%` |
+
+Other characters match literally, including whitespace. Embedded NULs in formats
+and unknown directives are errors. Delimit a variable-width `%f` from following
+numeric fields. Offset text is limited to ±23:59; larger `UtcOffset` values can
+still be used when no offset directive is present. An explicit parsed offset
+overrides the supplied default, which is otherwise used as-is. Negative zero
+offsets become UTC; these functions do not claim complete ISO 8601/RFC 3339 support.
+
+Parsing requires year, month, and day; omitted time fields default to zero.
+Repeated fields must agree. Parsing consumes the entire input and rejects invalid
+dates, leap seconds, and out-of-range fields before constructing a `DateTime`.
+It leaves the destination unchanged on failure. `ParseResult::position` reports
+consumed bytes on success or the input error offset on failure (zero for an
+invalid format; end of input for missing required fields).
+
+`FormatResult::size` reports required bytes excluding NUL on success or
+`kBufferTooSmall`, and zero on other errors. A positive output capacity requires a
+nonnull buffer, which is always NUL-terminated. Insufficient space returns a
+truncated prefix and `kBufferTooSmall`; other errors clear the buffer. Use
+`nullptr, 0` for a size query: it returns `kBufferTooSmall` even for an empty
+format, whose terminating NUL needs one byte. Output must not overlap the format.
+The pointer overloads also accept an explicit format length for bounded input
+without `roo::string_view`.
+
+The `std::string` overload returns an empty string on formatting error, also the
+successful output of an empty format. Allocation failures follow normal
+`std::string` behavior. `FormatDateTimeArduino` is available only with `ARDUINO`
+defined, returns Arduino `String`, and does not require `std::string`. It uses a
+small stack buffer for typical output and temporary heap storage for longer
+output; formatting or allocation failure returns an empty `String`.
+
+`ROO_TIME_HAS_STD_STRING` detects `<string>` with `__has_include`. It defaults to
+zero on toolchains without header detection; explicitly set it to 1 only when the
+standard string implementation works, or to 0 to omit the allocating overloads.
+`ROO_TIME_HAS_STRING_VIEW` defaults to the same value because the existing
+`roo_backport/string_view.h` itself includes `<string>`. It can independently be
+set to 1 on a capable toolchain when disabling only the allocating overloads.
+Pointer/buffer overloads remain available with both macros set to zero.
+
+Formatting uses native `strftime` for compatible two-digit calendar directives
+on Linux and ESP32, checking the result against the portable contract. Years,
+fractions, offsets, and parsing use shared portable code. Define
+`ROO_TIME_HAS_STRFTIME=0` when compiling `format.cpp` to force the fallback, or 1
+to enable the native adapter on another platform with `<ctime>` and
+`std::strftime`. No path uses `mktime`, modifies `TZ`, or depends on `time_t`'s
+range. Both formatting backends run the same conformance tests.
+
+### Canonical ISO datetime helpers
+
+`FormatIsoDateTime` and `ParseIsoDateTime` provide a named convenience for the
+library's ISO 8601 extended profile. Formatting always emits
+`YYYY-MM-DDTHH:MM:SS.ffffff±HH:MM`, preserving all six microsecond digits and the
+stored offset. UTC prints as `+00:00`. This is one explicitly defined profile;
+it does not cover all ISO 8601 representations.
+
+```cpp
+char iso[kIsoDateTimeBufferSize];  // 33 bytes, including NUL.
+FormatResult written = FormatIsoDateTime(appointment, iso, sizeof(iso));
+DateTime restored;
+ParseResult read = ParseIsoDateTime("2026-09-12T14:30:00.000042+02:00", &restored);
+
+#if ROO_TIME_HAS_STD_STRING
+std::string text = FormatIsoDateTime(appointment);
+#endif
+#if defined(ARDUINO)
+String text_arduino = FormatIsoDateTimeArduino(appointment);
+read = ParseIsoDateTime(text_arduino, &restored);
+#endif
+```
+
+Parsing also accepts whole seconds, one to six fractional digits, and `Z` for
+UTC, e.g. `2026-09-12T12:30:00Z`. The date, time through seconds, uppercase `T`,
+and explicit offset are required. Offset numerals require a colon. Whitespace,
+lowercase `t`/`z`, excess precision, and invalid dates are rejected. The same
+offset range, error statuses, and unchanged-destination guarantee apply as for
+the general API. Input can be a NUL-terminated string, a pointer plus length,
+`roo::string_view` when enabled, or Arduino `String` on Arduino.
+
 ## Connecting an RTC
 
 Implement `WallTimeClock::now()` to return the device's UTC timestamp. This
