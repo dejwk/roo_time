@@ -61,34 +61,26 @@ struct ParseResult {
   size_t position;
 };
 
-// Formats a valid DateTime, without allocation. Supported directives:
-// %Y (4 digits), %m/%d/%H/%M/%S (2 digits), %f (6 digits), %z (+hhmm),
-// %:z (+hh:mm), %F (%Y-%m-%d), %T (%H:%M:%S), and %%. Other bytes are
-// matched literally, except embedded NULs, which are invalid in formats.
-// Offset directives require an offset between -23:59 and +23:59 inclusive.
-// Locale and the process timezone do not affect the result.
-//
-// Input ranges need not be NUL-terminated. Null pointers are allowed only for
-// empty ranges. Output must not overlap the format. When capacity > 0, buffer
-// must be nonnull and is always NUL-terminated. Insufficient space yields a
-// truncated prefix; other errors yield an empty buffer. nullptr, 0 queries size
-// (kBufferTooSmall, including for an empty format, whose NUL needs one byte).
+/// Formats a valid DateTime without allocation. Supported directives are %Y,
+/// %m, %d, %H, %M, %S, %f, %z, %:z, %F, %T, and %%; other bytes are literals.
+/// Offset directives require an offset from -23:59 through +23:59. Ranges need
+/// not be NUL-terminated; null pointers are valid only for empty ranges.
+/// Output never overlaps the format and is NUL-terminated when capacity is
+/// nonzero. nullptr, 0 queries the required size and returns kBufferTooSmall.
 FormatResult FormatDateTime(const DateTime& value, const char* format,
                             size_t format_length, char* buffer,
                             size_t capacity);
 
-// Strictly parses the entire input without allocation. Numeric widths match
-// formatting, except %f accepts 1-6 digits, scaled to microseconds. Offset
-// directives also accept Z for UTC; an explicit offset replaces default_offset.
-// Year, month, and day are required; absent time fields default to zero.
-// Duplicate fields must agree. Invalid dates, leap seconds, and out-of-range
-// values are rejected before construction. result must be nonnull and remains
-// unchanged on failure. No normalization, local timezone, or DST lookup occurs.
+/// Strictly parses the entire input without allocation. %f accepts one through
+/// six digits, Z denotes UTC, and explicit offsets replace default_offset.
+/// Year, month, and day are required; duplicate fields must agree. result is
+/// unchanged on failure. No normalization, local timezone, or DST lookup
+/// occurs.
 ParseResult ParseDateTime(const char* text, size_t length, const char* format,
                           size_t format_length, UtcOffset default_offset,
                           DateTime* result);
 
-// NUL-terminated format conveniences. The input text remains length-bounded.
+/// Formats with a NUL-terminated format string.
 inline FormatResult FormatDateTime(const DateTime& value, const char* format,
                                    char* buffer, size_t capacity) {
   return FormatDateTime(value, format,
@@ -96,6 +88,7 @@ inline FormatResult FormatDateTime(const DateTime& value, const char* format,
                         capacity);
 }
 
+/// Parses with a NUL-terminated format string.
 inline ParseResult ParseDateTime(const char* text, size_t length,
                                  const char* format, UtcOffset default_offset,
                                  DateTime* result) {
@@ -105,12 +98,14 @@ inline ParseResult ParseDateTime(const char* text, size_t length,
 }
 
 #if ROO_TIME_HAS_STRING_VIEW
+/// Formats using a bounded string view format.
 inline FormatResult FormatDateTime(const DateTime& value,
                                    roo::string_view format, char* buffer,
                                    size_t capacity) {
   return FormatDateTime(value, format.data(), format.size(), buffer, capacity);
 }
 
+/// Parses bounded text and format views.
 inline ParseResult ParseDateTime(roo::string_view text, roo::string_view format,
                                  UtcOffset default_offset, DateTime* result) {
   return ParseDateTime(text.data(), text.size(), format.data(), format.size(),
@@ -119,8 +114,7 @@ inline ParseResult ParseDateTime(roo::string_view text, roo::string_view format,
 #endif
 
 #if ROO_TIME_HAS_STD_STRING
-// Returns an empty string on formatting error (also the successful result of
-// an empty format). Allocation failures follow normal std::string behavior.
+/// Formats to std::string, returning empty on formatting error or empty output.
 inline std::string FormatDateTime(const DateTime& value, const char* format,
                                   size_t format_length) {
   FormatResult measured =
@@ -137,12 +131,14 @@ inline std::string FormatDateTime(const DateTime& value, const char* format,
   return text;
 }
 
+/// Formats a NUL-terminated format string to std::string.
 inline std::string FormatDateTime(const DateTime& value, const char* format) {
   return FormatDateTime(value, format,
                         format != nullptr ? std::strlen(format) : 1);
 }
 
 #if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded string view to std::string.
 inline std::string FormatDateTime(const DateTime& value,
                                   roo::string_view format) {
   return FormatDateTime(value, format.data(), format.size());
@@ -151,8 +147,8 @@ inline std::string FormatDateTime(const DateTime& value,
 #endif
 
 #if defined(ARDUINO)
-// Arduino convenience, independent of std::string support. Returns an empty
-// String on formatting or allocation failure, or for a successful empty format.
+/// Formats to Arduino String, returning empty on formatting or allocation
+/// failure.
 inline String FormatDateTimeArduino(const DateTime& value, const char* format,
                                     size_t format_length) {
   char local[64];
@@ -171,12 +167,14 @@ inline String FormatDateTimeArduino(const DateTime& value, const char* format,
   return text;
 }
 
+/// Formats a NUL-terminated format string to Arduino String.
 inline String FormatDateTimeArduino(const DateTime& value, const char* format) {
   return FormatDateTimeArduino(value, format,
                                format != nullptr ? std::strlen(format) : 1);
 }
 
 #if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded string view to Arduino String.
 inline String FormatDateTimeArduino(const DateTime& value,
                                     roo::string_view format) {
   return FormatDateTimeArduino(value, format.data(), format.size());
@@ -184,58 +182,55 @@ inline String FormatDateTimeArduino(const DateTime& value,
 #endif
 #endif
 
-// The library's canonical ISO 8601 extended representation preserves the fixed
-// offset and microseconds: YYYY-MM-DDTHH:MM:SS.ffffff+hh:mm. UTC uses +00:00.
-// This is a specific profile, not support for every ISO 8601 representation.
+/// Canonical ISO 8601 profile: YYYY-MM-DDTHH:MM:SS.ffffff+hh:mm.
 constexpr char kIsoDateTimeFormat[] = "%FT%T.%f%:z";
+/// Buffer size, including NUL, required by the canonical ISO 8601 profile.
 constexpr size_t kIsoDateTimeBufferSize = 33;  // 32 characters plus NUL.
 
-// Same status, buffer, and offset-range contracts as FormatDateTime.
+/// Formats using the canonical ISO 8601 profile.
 inline FormatResult FormatIsoDateTime(const DateTime& value, char* buffer,
                                       size_t capacity) {
   return FormatDateTime(value, kIsoDateTimeFormat, buffer, capacity);
 }
 
-// Accepts YYYY-MM-DDTHH:MM:SS[.fraction](Z|+hh:mm|-hh:mm), with 1-6
-// fractional digits when present. T and Z must be uppercase; an explicit offset
-// is required. No whitespace, basic dates, week dates, or offset without a
-// colon. Uses ParseDateTime's strict validation and leaves result unchanged on
-// failure.
+/// Parses the canonical extended ISO 8601 forms with one through six optional
+/// fractional digits and a required Z or colon-separated numeric offset.
 ParseResult ParseIsoDateTime(const char* text, size_t length, DateTime* result);
 
+/// Parses a NUL-terminated ISO 8601 string.
 inline ParseResult ParseIsoDateTime(const char* text, DateTime* result) {
   if (text == nullptr) return {TextStatus::kInvalidInput, 0};
   return ParseIsoDateTime(text, std::strlen(text), result);
 }
 
 #if ROO_TIME_HAS_STRING_VIEW
+/// Parses a bounded ISO 8601 string view.
 inline ParseResult ParseIsoDateTime(roo::string_view text, DateTime* result) {
   return ParseIsoDateTime(text.data(), text.size(), result);
 }
 #endif
 
 #if ROO_TIME_HAS_STD_STRING
-// Empty on formatting error; allocation follows normal std::string behavior.
+/// Formats to std::string with the canonical ISO 8601 profile.
 inline std::string FormatIsoDateTime(const DateTime& value) {
   return FormatDateTime(value, kIsoDateTimeFormat);
 }
 #endif
 
 #if defined(ARDUINO)
-// Empty on formatting/allocation failure, independent of std::string support.
+/// Formats to Arduino String with the canonical ISO 8601 profile.
 inline String FormatIsoDateTimeArduino(const DateTime& value) {
   return FormatDateTimeArduino(value, kIsoDateTimeFormat);
 }
 
+/// Parses an Arduino String as canonical ISO 8601 text.
 inline ParseResult ParseIsoDateTime(const String& text, DateTime* result) {
   return ParseIsoDateTime(text.c_str(), text.length(), result);
 }
 #endif
 
-// Timezone overloads resolve exactly once, then format a fixed-offset snapshot.
-// Requires the zone's documented instant range and a resulting local date in
-// years 1–9999, as for ToLocal(); otherwise behavior is undefined.
-// No zone abbreviations are inferred. Other formatting error contracts apply.
+/// Resolves the zone once, then formats the resulting fixed-offset local time.
+/// Resolves the zone once and formats a NUL-terminated format string.
 inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
                                    const char* format, size_t format_length,
                                    char* buffer, size_t capacity) {
@@ -251,11 +246,13 @@ inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
                         capacity);
 }
 
+/// Resolves the zone once and formats canonical ISO 8601 text.
 inline FormatResult FormatIsoDateTime(WallTime instant, const TimeZone& zone,
                                       char* buffer, size_t capacity) {
   return FormatDateTime(instant, zone, kIsoDateTimeFormat, buffer, capacity);
 }
 #if ROO_TIME_HAS_STRING_VIEW
+/// Resolves the zone once and formats a bounded format view.
 inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
                                    roo::string_view format, char* buffer,
                                    size_t capacity) {
@@ -264,22 +261,27 @@ inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
 }
 #endif
 #if ROO_TIME_HAS_STD_STRING
+/// Resolves the zone once and formats to std::string.
 inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
                                   const char* format, size_t format_length) {
   const DateTime local = ToLocal(instant, zone);
   return FormatDateTime(local, format, format_length);
 }
 
+/// Resolves the zone once and formats a NUL-terminated format string to
+/// std::string.
 inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
                                   const char* format) {
   return FormatDateTime(instant, zone, format,
                         format != nullptr ? std::strlen(format) : 1);
 }
 
+/// Resolves the zone once and formats canonical ISO 8601 text to std::string.
 inline std::string FormatIsoDateTime(WallTime instant, const TimeZone& zone) {
   return FormatDateTime(instant, zone, kIsoDateTimeFormat);
 }
 #if ROO_TIME_HAS_STRING_VIEW
+/// Resolves the zone once and formats a bounded format view to std::string.
 inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
                                   roo::string_view format) {
   return FormatDateTime(instant, zone, format.data(), format.size());
@@ -287,22 +289,28 @@ inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
 #endif
 #endif
 #if defined(ARDUINO)
+/// Resolves the zone once and formats to Arduino String.
 inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
                                     const char* format, size_t format_length) {
   const DateTime local = ToLocal(instant, zone);
   return FormatDateTimeArduino(local, format, format_length);
 }
 
+/// Resolves the zone once and formats a NUL-terminated format string to Arduino
+/// String.
 inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
                                     const char* format) {
   return FormatDateTimeArduino(instant, zone, format,
                                format != nullptr ? std::strlen(format) : 1);
 }
 
+/// Resolves the zone once and formats canonical ISO 8601 text to Arduino
+/// String.
 inline String FormatIsoDateTimeArduino(WallTime instant, const TimeZone& zone) {
   return FormatDateTimeArduino(instant, zone, kIsoDateTimeFormat);
 }
 #if ROO_TIME_HAS_STRING_VIEW
+/// Resolves the zone once and formats a bounded format view to Arduino String.
 inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
                                     roo::string_view format) {
   return FormatDateTimeArduino(instant, zone, format.data(), format.size());

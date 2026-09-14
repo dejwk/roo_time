@@ -29,25 +29,25 @@ class Tokens {
  public:
   Tokens(const char* data, size_t size) : data_(data), size_(size) {}
 
-  bool next(char& code, char& literal) {
+  bool nextToken(char& code, char& literal) {
     char c;
-    if (!get(c)) return false;
+    if (!getChar(c)) return false;
     code = '\0';
     literal = c;
     if (c == '\0') {
       valid_ = false;
     } else if (c == '%') {
-      if (!get(code)) {
+      if (!getChar(code)) {
         valid_ = false;
       } else if (code == 'F' || code == 'T') {
         alias_ = code == 'F' ? "%Y-%m-%d" : "%H:%M:%S";
-        return next(code, literal);
+        return nextToken(code, literal);
       } else if (code == '%') {
         code = '\0';
         literal = '%';
       } else if (code == ':') {
         char z;
-        if (!get(z) || z != 'z') valid_ = false;
+        if (!getChar(z) || z != 'z') valid_ = false;
       } else if (code == '\0' || std::strchr("YmdHMSfz", code) == nullptr) {
         valid_ = false;
       }
@@ -55,10 +55,10 @@ class Tokens {
     return valid_;
   }
 
-  bool valid() const { return valid_; }
+  bool isValid() const { return valid_; }
 
  private:
-  bool get(char& c) {
+  bool getChar(char& c) {
     if (alias_ != nullptr) {
       if (*alias_ != '\0') {
         c = *alias_++;
@@ -83,32 +83,36 @@ bool ValidFormat(const char* format, size_t length, bool& has_offset) {
   Tokens tokens(format, length);
   char code, literal;
   has_offset = false;
-  while (tokens.next(code, literal)) {
+  while (tokens.nextToken(code, literal)) {
     if (code == 'z' || code == ':') has_offset = true;
   }
-  return tokens.valid();
+  return tokens.isValid();
 }
 
+// Accumulates a bounded, NUL-terminated formatted result while measuring it.
 class Writer {
  public:
   Writer(char* buffer, size_t capacity)
       : buffer_(buffer), capacity_(capacity) {}
-  void put(char c) {
+
+  void putChar(char c) {
     // Saturate rather than wrap on targets with a small size_t. SIZE_MAX bytes
     // cannot be represented together with the required terminating NUL.
     if (size_ == static_cast<size_t>(-1)) return;
     if (capacity_ != 0 && size_ < capacity_ - 1) buffer_[size_] = c;
     ++size_;
   }
-  void number(uint32_t value, unsigned width) {
+
+  void putNumber(uint32_t value, unsigned width) {
     char digits[6];
     for (unsigned i = width; i > 0; --i) {
       digits[i - 1] = '0' + value % 10;
       value /= 10;
     }
-    for (unsigned i = 0; i < width; ++i) put(digits[i]);
+    for (unsigned i = 0; i < width; ++i) putChar(digits[i]);
   }
-  FormatResult finish() {
+
+  FormatResult finishResult() {
     if (size_ == static_cast<size_t>(-1)) {
       if (capacity_ != 0) buffer_[0] = '\0';
       return {TextStatus::kOutOfRange, 0};
@@ -125,6 +129,7 @@ class Writer {
   size_t size_ = 0;
 };
 
+// Formats a fixed-width calendar field, using strftime only when it agrees.
 void CalendarNumber(Writer& writer, const DateTime& value, char code,
                     unsigned number) {
 #if ROO_TIME_HAS_STRFTIME
@@ -144,15 +149,15 @@ void CalendarNumber(Writer& writer, const DateTime& value, char code,
   if (std::strftime(text, sizeof(text), format, &calendar) == 2 &&
       IsDigit(text[0]) && IsDigit(text[1]) &&
       static_cast<unsigned>((text[0] - '0') * 10 + text[1] - '0') == number) {
-    writer.put(text[0]);
-    writer.put(text[1]);
+    writer.putChar(text[0]);
+    writer.putChar(text[1]);
     return;
   }
 #else
   (void)value;
   (void)code;
 #endif
-  writer.number(number, 2);
+  writer.putNumber(number, 2);
 }
 
 enum Field {
@@ -167,27 +172,28 @@ enum Field {
   kCount
 };
 
+// Tracks strict format parsing and prevents inconsistent duplicate fields.
 class Parser {
  public:
   Parser(const char* text, size_t length) : text_(text), length_(length) {}
 
-  bool literal(char c) {
+  bool matchLiteral(char c) {
     if (pos == length_ || text_[pos] != c)
-      return fail(TextStatus::kInvalidInput);
+      return failWith(TextStatus::kInvalidInput);
     ++pos;
     return true;
   }
 
-  bool number(unsigned width, int32_t& value) {
+  bool parseNumber(unsigned width, int32_t& value) {
     value = 0;
     for (unsigned i = 0; i < width; ++i) {
-      if (!digit()) return fail(TextStatus::kInvalidInput);
+      if (!hasDigit()) return failWith(TextStatus::kInvalidInput);
       value = value * 10 + text_[pos++] - '0';
     }
     return true;
   }
 
-  bool directive(char code) {
+  bool parseDirective(char code) {
     const size_t start = pos;
     int32_t value = 0;
     Field field;
@@ -222,44 +228,44 @@ class Parser {
         break;
       case 'f': {
         unsigned digits = 0;
-        while (digits < 6 && digit()) {
+        while (digits < 6 && hasDigit()) {
           value = value * 10 + text_[pos++] - '0';
           ++digits;
         }
-        if (digits == 0) return fail(TextStatus::kInvalidInput);
-        if (digit()) return fail(TextStatus::kOutOfRange);
+        if (digits == 0) return failWith(TextStatus::kInvalidInput);
+        if (hasDigit()) return failWith(TextStatus::kOutOfRange);
         while (digits++ < 6) value *= 10;
-        return set(kMicros, value, start);
+        return setField(kMicros, value, start);
       }
       default: {
         // Both offset directives accept the UTC designator.
         if (pos < length_ && text_[pos] == 'Z') {
           ++pos;
-          return set(kOffset, 0, start);
+          return setField(kOffset, 0, start);
         }
         if (pos == length_ || (text_[pos] != '+' && text_[pos] != '-')) {
-          return fail(TextStatus::kInvalidInput);
+          return failWith(TextStatus::kInvalidInput);
         }
         const bool negative = text_[pos++] == '-';
         int32_t hours, minutes;
-        if (!number(2, hours)) return false;
-        if (code == ':' && !literal(':')) return false;
-        if (!number(2, minutes)) return false;
+        if (!parseNumber(2, hours)) return false;
+        if (code == ':' && !matchLiteral(':')) return false;
+        if (!parseNumber(2, minutes)) return false;
         if (hours > 23 || minutes > 59)
-          return fail(TextStatus::kOutOfRange, start);
+          return failWith(TextStatus::kOutOfRange, start);
         value = hours * 60 + minutes;
-        return set(kOffset, negative ? -value : value, start);
+        return setField(kOffset, negative ? -value : value, start);
       }
     }
-    if (!number(width, value)) return false;
+    if (!parseNumber(width, value)) return false;
     if (value < minimum || value > maximum)
-      return fail(TextStatus::kOutOfRange, start);
-    return set(field, value, start);
+      return failWith(TextStatus::kOutOfRange, start);
+    return setField(field, value, start);
   }
 
-  bool complete() {
+  bool isComplete() {
     if (pos != length_ || !seen[kYear] || !seen[kMonth] || !seen[kDay]) {
-      return fail(TextStatus::kInvalidInput);
+      return failWith(TextStatus::kInvalidInput);
     }
     static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     const int year = fields[kYear], month = fields[kMonth];
@@ -267,7 +273,7 @@ class Parser {
     if (month == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
       ++max_day;
     if (fields[kDay] > max_day)
-      return fail(TextStatus::kOutOfRange, positions[kDay]);
+      return failWith(TextStatus::kOutOfRange, positions[kDay]);
     return true;
   }
 
@@ -277,18 +283,21 @@ class Parser {
   bool seen[kCount] = {};
 
  private:
-  bool digit() const { return pos < length_ && IsDigit(text_[pos]); }
-  bool fail(TextStatus error) {
+  bool hasDigit() const { return pos < length_ && IsDigit(text_[pos]); }
+
+  bool failWith(TextStatus error) {
     status = error;
     return false;
   }
-  bool fail(TextStatus error, size_t position) {
+
+  bool failWith(TextStatus error, size_t position) {
     pos = position;
-    return fail(error);
+    return failWith(error);
   }
-  bool set(Field field, int32_t value, size_t start) {
+
+  bool setField(Field field, int32_t value, size_t start) {
     if (seen[field] && fields[field] != value)
-      return fail(TextStatus::kInvalidInput, start);
+      return failWith(TextStatus::kInvalidInput, start);
     fields[field] = value;
     seen[field] = true;
     positions[field] = start;
@@ -316,13 +325,13 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
   Writer writer(buffer, capacity);
   Tokens tokens(format, format_length);
   char code, literal;
-  while (tokens.next(code, literal)) {
+  while (tokens.nextToken(code, literal)) {
     switch (code) {
       case '\0':
-        writer.put(literal);
+        writer.putChar(literal);
         break;
       case 'Y':
-        writer.number(value.year(), 4);
+        writer.putNumber(value.year(), 4);
         break;
       case 'm':
         CalendarNumber(writer, value, code, value.month());
@@ -340,19 +349,19 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
         CalendarNumber(writer, value, code, value.second());
         break;
       case 'f':
-        writer.number(value.micros(), 6);
+        writer.putNumber(value.micros(), 6);
         break;
       default: {
-        writer.put(offset < 0 ? '-' : '+');
+        writer.putChar(offset < 0 ? '-' : '+');
         const unsigned magnitude = offset < 0 ? -offset : offset;
-        writer.number(magnitude / 60, 2);
-        if (code == ':') writer.put(':');
-        writer.number(magnitude % 60, 2);
+        writer.putNumber(magnitude / 60, 2);
+        if (code == ':') writer.putChar(':');
+        writer.putNumber(magnitude % 60, 2);
         break;
       }
     }
   }
-  return writer.finish();
+  return writer.finishResult();
 }
 
 ParseResult ParseDateTime(const char* text, size_t length, const char* format,
@@ -366,12 +375,13 @@ ParseResult ParseDateTime(const char* text, size_t length, const char* format,
   Parser parser(text, length);
   Tokens tokens(format, format_length);
   char code, literal;
-  while (tokens.next(code, literal)) {
-    if (!(code != '\0' ? parser.directive(code) : parser.literal(literal))) {
+  while (tokens.nextToken(code, literal)) {
+    if (!(code != '\0' ? parser.parseDirective(code)
+                       : parser.matchLiteral(literal))) {
       return {parser.status, parser.pos};
     }
   }
-  if (!parser.complete()) return {parser.status, parser.pos};
+  if (!parser.isComplete()) return {parser.status, parser.pos};
   const int32_t* f = parser.fields;
   *result = DateTime(
       f[kYear], f[kMonth], f[kDay], f[kHour], f[kMinute], f[kSecond],
