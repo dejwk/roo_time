@@ -279,13 +279,6 @@ TEST(DateTime, TmDayOfYear) {
 }
 #endif
 
-// Check source compatibility without emitting a warning from the test itself.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-static_assert(std::is_same<roo_time::TimeZone, roo_time::UtcOffset>::value,
-              "The old name must remain an alias of UtcOffset");
-#pragma GCC diagnostic pop
-
 TEST(UtcOffset, ConstructionAndDateTimeIntegration) {
   using namespace roo_time;
   EXPECT_EQ(Micros(0), UtcOffset().offset());

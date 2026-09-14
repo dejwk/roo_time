@@ -39,8 +39,8 @@ requires regular clock sampling and serialized calls; see
 | `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
 
 Use uptime for timing work and wall time for dates. `UtcOffset` supplies a fixed UTC
-offset; synchronization, RTC communication, and daylight-saving rules are supplied
-by your application or companion libraries.
+offset. `TimeZone` resolves seasonal offsets using built-in recurring rules or
+a custom implementation; synchronization and RTC communication remain separate.
 
 The examples below cover [durations](#durations-and-deadlines),
 [wall time](#reading-wall-time), [calendar dates](#calendar-dates-and-utc-offsets),
@@ -124,12 +124,13 @@ For the current local date and time, use `DateTime(my_clock.now(), local_offset)
 The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, and
 `micros()`.
 
-`TimeZone` remains available as a deprecated alias for `UtcOffset`; existing
-code continues to compile with a deprecation warning. The `timeZone()` accessor
-and `timezone::UTC` constant retain their existing names.
+Breaking change: `TimeZone` is now an abstract offset resolver, replacing the
+former alias for `UtcOffset`. Replace old fixed-offset `TimeZone` declarations
+with `UtcOffset`. `DateTime::timeZone()` still returns its resolved `UtcOffset`,
+and `timezone::UTC` is still the zero fixed offset.
 
 Offsets are fixed; they do not automatically follow daylight-saving changes.
-For an application-specific rule, see the [DST example](#daylight-saving-example).
+For seasonal offsets, see [time zones](#time-zones-and-seasonal-rules).
 Also, `DateTime()` means the Unix epoch, not the current time.
 
 ## Formatting and parsing calendar dates
@@ -397,7 +398,7 @@ shared mutation requires synchronization. In particular, `Uptime`'s copy and
 assignment operations accepting `volatile` sources do not make a 64-bit access
 atomic on a smaller MCU or establish synchronization between threads.
 
-For standalone Pico SDK builds, compile `src/roo_time.cpp` and
+For standalone Pico SDK builds, compile `src/roo_time.cpp`, `src/roo_time/timezone.cpp`, and
 `src/uptime_now.cpp`, add `src` to the include path, and link `pico_time`.
 The SDK supplies `PICO_ON_DEVICE`; compatible RP2040 Arduino cores are detected
 through `ARDUINO_ARCH_RP2040` and availability of `pico/time.h`. Pico waits use
@@ -467,9 +468,9 @@ does not initiate NTP synchronization. It returns the Unix epoch if
 `gettimeofday` fails, which is indistinguishable from a successful epoch reading.
 
 Wall time can jump forward or backward after synchronization or manual adjustment.
-Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not
-handle DST transitions, ambiguous local times, or changes to timezone rules; the
-[DST example](#daylight-saving-example) supplies an application-specific rule.
+Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not handle DST transitions. `TimeZone` resolves UTC instants
+to seasonal offsets. Reverse local-time resolution and automatic rule updates
+are not provided.
 
 ### Rounding semantics
 
@@ -485,43 +486,129 @@ Examples for milliseconds:
 - `Micros(1501).inMillisRoundedUp()` is `2`, `Micros(-1501).inMillisRoundedUp()` is `-2`.
 - `Micros(500).inMillisRoundedNearest()` is `1`, `Micros(-500).inMillisRoundedNearest()` is `-1`.
 
-### Daylight-saving example
+### Time zones and seasonal rules
 
-Applications can choose a fixed offset based on the timestamp. This example
-implements UTC+01:00 in winter and UTC+02:00 in summer, with transitions at 01:00
-UTC on the last Sundays of March and October. It illustrates one rule rather
-than providing a geographic timezone database or historical rule changes.
+Include `roo_time/timezone.h` for the timezone API. Core value types, including
+`UtcOffset` and `DateTime`, remain in `roo_time.h`. `roo_time/format.h` includes
+the timezone header for its timezone-aware overloads.
+
+`TimeZone::resolveOffset(WallTime) const` returns the **total** local-minus-UTC
+offset as a `UtcOffset`. The instant must be within the implementation's
+documented range; behavior is undefined otherwise. Implementations do not read the clock
+or modify global timezone settings, and must permit concurrent const queries.
+The new offset applies exactly at a transition: intervals are `[start, end)`.
+There is no heap allocation or mutable shared cache in the built-in resolvers.
 
 ```cpp
-Duration utcOffset(WallTime t) {
-  int16_t y = DateTime(t, timezone::UTC).year();
-  // Figure out the day of the week of the last day of March that year.
-  DateTime mar31(y, 3, 31, timezone::UTC);
-  // Figure out the down-offset from mar31 to the 2AM last Sunday of March.
-  // Keep in mind that 2AM is 1AM UTC.
-  DayOfWeek march31dow = mar31.dayOfWeek();
-  WallTime summerStart = mar31.wallTime() - Hours(24 * march31dow) + Hours(1);
-  // Similar calculation for the winter time. Note that 3AM is now 1AM UTC.
-  DateTime oct31(y, 10, 31, timezone::UTC);
-  DayOfWeek oct31dow = oct31.dayOfWeek();
-  WallTime summerEnd = oct31.wallTime() - Hours(24 * oct31dow) + Hours(1);
-  // Now, see if the specified time point is within the summer time range.
-  return t >= summerStart && t < summerEnd ? Hours(2) : Hours(1);
-}
+#include "roo_time/timezone.h"
+#include "roo_time/format.h"
+using namespace roo_time;
 
-class DSTWatch {
- public:
-  DSTWatch(WallTimeClock& clock) : clock_(clock) {}
+// Configure a recurring rule with a standard offset.
+RecurringTimeZone local_zone(UtcOffset(Hours(1)), rules::EuSummerTime());
+FixedTimeZone india(UtcOffset(Minutes(330)));
 
-  DateTime nowLocal() {
-    WallTime t = clock_.now();
-    return DateTime(t, UtcOffset(utcOffset(t)));
-  }
-
- private:
-  WallTimeClock& clock_;
-};
+// Resolve an instant once into a snapshot containing fields and a fixed offset.
+WallTime instant = DateTime(2026, 7, 1, timezone::UTC).wallTime();
+DateTime local = ToLocal(instant, local_zone);
+int hour = local.hour();  // 2
+// local retains no reference to local_zone.
+char text[kIsoDateTimeBufferSize];
+FormatResult result = FormatIsoDateTime(instant, local_zone, text, sizeof(text));
+// 2026-07-01T02:00:00.000000+02:00
 ```
+
+`FixedTimeZone` accepts INT64_MIN through INT64_MAX microseconds since the Unix
+epoch, inclusive. Every representable `UtcOffset` is valid for its constructor.
+`RecurringTimeZone` accepts UTC instants from 0001-01-01T00:00:00.000000Z through
+9999-12-31T23:59:59.999999Z, inclusive. Out-of-range calls have undefined behavior
+and assert in debug builds. `ToLocal(instant, zone)` returns a `DateTime` directly.
+It requires the same input range and a resolved local date from
+0001-01-01T00:00:00.000000 through 9999-12-31T23:59:59.999999, inclusive. Violating
+either precondition has undefined behavior; the local-date bounds assert in debug builds.
+`DateTime` remains a fixed-offset snapshot: after shifting an instant across a
+transition, resolve it again. These APIs take an instant, not ambiguous local
+calendar fields. Parsing continues to use an explicit fixed offset; it does not
+infer a zone or choose between duplicated/nonexistent local times.
+
+`FormatDateTime(instant, zone, ...)` and `FormatIsoDateTime(instant, zone, ...)`
+have buffer and optional `std::string` overloads, plus the existing Arduino
+`...Arduino` forms. They resolve once per call, including allocating forms that
+measure and then write. Numeric offset directives use the snapshot's offset.
+Timezone-aware formatting has the same instant and local-date preconditions as
+`ToLocal()`. Violating them has undefined behavior. Other formatting and buffer
+contracts still apply. No abbreviations or geographic names are inferred from
+an offset.
+
+A recurring configuration consists of a base offset, a signed whole-minute
+seasonal adjustment stored as `UtcOffset`, and two `AnnualTransition` values. Each transition has:
+
+- A date: `AnnualDateRule::OnDay(month, day)`, `NthWeekday(month, weekday, n)`
+  for n=1–4, `LastWeekday(month, weekday)`, or
+  `WeekdayOnOrAfter(month, weekday, day)`.
+- `uint16_t minutes_since_midnight`, in 0–1440 inclusive. 1440 means midnight
+  **after** the selected date, even when that crosses a month or year boundary.
+- A `TransitionTimeBasis`: `kUtc`, `kBaseLocal`, or `kAdjustedLocal`.
+  Local transition fields are converted with the specified offset, never by
+  recursively querying the zone.
+
+Selectors must exist within their month in every year. Thus February 29,
+fifth-weekday selectors, and on-or-after anchors that could leave the month are
+invalid. `AnnualDateRule::isValid()` checks this; `resolveDay(year, output)`
+returns false without changing output for invalid rules or years.
+
+```cpp
+SeasonalRules custom = {
+    {AnnualDateRule::WeekdayOnOrAfter(kMarch, kFriday, 23), 120,
+     TransitionTimeBasis::kBaseLocal},
+    {AnnualDateRule::LastWeekday(kOctober, kThursday), 1440,
+     TransitionTimeBasis::kAdjustedLocal},
+    UtcOffset(Minutes(30))};
+RecurringTimeZone zone(UtcOffset(Hours(2)), custom);
+// Invalid structural configuration asserts during construction.
+```
+
+Construction asserts inexpensive structural preconditions: valid selectors,
+transition times/bases and representable total offsets. `UtcOffset` stores the
+adjustment in whole minutes. Invalid construction has undefined behavior when assertions are disabled.
+There is no invalid-object state or `RecurringTimeZone::isValid()` accessor.
+For every year 1–9999, after conversion using the zone's offsets,
+`first_transition` must strictly precede `second_transition`, and both instants
+must fall within that same UTC calendar year. These requirements are the caller's
+responsibility; violations have undefined behavior and are not checked.
+Resolution evaluates just these two transitions for the query's UTC year.
+Negative and zero adjustments are permitted. January, December, and same-month
+transitions are permitted if they satisfy the requirements above.
+
+The adjustment applies from `first_transition` (inclusive) to
+`second_transition` (exclusive); the base offset applies outside that interval.
+For southern-hemisphere patterns, use the summer offset as the base and a
+negative winter adjustment, so the adjusted interval stays within the year.
+
+Built-in factories describe the following recurring patterns:
+
+| Factory | First / second transition | Adjustment | Base offset |
+| --- | --- | --- | --- |
+| `rules::EuSummerTime()` | Last Sunday March / October, both 01:00 UTC | +60 min | Standard (winter) offset |
+| `rules::UsDstSince2007()` | Second Sunday March 02:00 base / first Sunday November 02:00 adjusted | +60 min | Standard (winter) offset |
+| `rules::AustralianEasternDst()` | First Sunday April 03:00 base / first Sunday October 02:00 adjusted | -60 min | +11 hours |
+| `rules::NewZealandDst()` | First Sunday April / last Sunday September, both 02:00 adjusted | -60 min | +13 hours for mainland NZ |
+| `rules::LordHoweDst()` | First Sunday April 02:00 base / first Sunday October 02:00 adjusted | -30 min | +11 hours |
+
+These patterns are based on the [EU directive](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX%3A32000L0084),
+[NIST's US description](https://www.nist.gov/pml/time-and-frequency-division/popular-links/daylight-saving-time-dst),
+and [IANA Australasia data](https://data.iana.org/time-zones/tzdb/australasia).
+They are applied **proleptically** throughout the supported range, including
+before the named pattern was adopted. They do not promise historical accuracy,
+cover every place in a named region, or update automatically with legislation.
+Choose the appropriate base offset separately. No geographic database,
+lunar-calendar rules, one-off exceptions, or more than two annual transitions
+are included.
+
+For other rules, implement the single virtual `resolveOffset` method. An adapter
+can consult a device-specific rule, a transition table, or AceTime. It must
+document its minimum and maximum accepted instants and return an offset for
+every instant within that range. No AceTime dependency or adapter is bundled.
 
 ### Compact timing contracts
 

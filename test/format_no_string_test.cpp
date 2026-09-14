@@ -24,5 +24,9 @@ int main() {
   if (ParseIsoDateTime(iso, &restored).status != TextStatus::kOk ||
       restored != output)
     return 4;
+  FixedTimeZone zone(UtcOffset(Hours(1)));
+  auto zoned = FormatIsoDateTime(output.wallTime(), zone, iso, sizeof(iso));
+  if (zoned.status != TextStatus::kOk ||
+      std::strcmp(iso, "2024-02-29T01:00:00.000000+01:00") != 0) return 5;
   return 0;
 }

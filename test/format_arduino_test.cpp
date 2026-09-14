@@ -35,6 +35,9 @@ int main() {
   if (ParseIsoDateTime(iso, &parsed).status != TextStatus::kOk ||
       parsed != value)
     return 10;
+  FixedTimeZone zone(UtcOffset(Minutes(345)));
+  if (std::strcmp(FormatIsoDateTimeArduino(value.wallTime(), zone).c_str(),
+                  "2024-02-29T16:19:56.123456+05:45") != 0) return 12;
   String::fail_allocation = true;
   if (std::strcmp(FormatDateTimeArduino(value, "%F").c_str(), "") != 0)
     return 7;

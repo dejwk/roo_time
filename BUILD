@@ -48,6 +48,7 @@ cc_library(
         name = name,
         size = "small",
         srcs = ["test/format_test.cpp"],
+        linkstatic = True,
         deps = [backend, "@googletest//:gtest_main"],
     )
     for name, backend in [
@@ -58,6 +59,7 @@ cc_library(
 
 cc_test(
     name = "format_no_string_test",
+    linkstatic = True,
     size = "small",
     srcs = ["test/format_no_string_test.cpp"],
     deps = [":format_portable"],
@@ -81,6 +83,8 @@ cc_library(
     name = "core",
     srcs = [
         "src/roo_time.cpp",
+        "src/roo_time/timezone.cpp",
+        "src/roo_time/timezone.h",
         "src/roo_time.h",
         "src/roo_time/chrono.h",
     ],
@@ -182,6 +186,7 @@ cc_test(
 
 cc_test(
     name = "compact_time_test",
+    linkstatic = True,
     size = "small",
     srcs = ["test/compact_time_test.cpp"],
     deps = [":roo_time", "@googletest//:gtest_main"],
@@ -214,4 +219,12 @@ cc_test(
     size = "small",
     srcs = ["test/chrono_disabled_test.cpp"],
     deps = [":core"],
+)
+
+cc_test(
+    name = "timezone_test",
+    linkstatic = True,
+    size = "small",
+    srcs = ["test/timezone_test.cpp"],
+    deps = [":format", "@googletest//:gtest_main"],
 )

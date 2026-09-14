@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "roo_time.h"
+#include "roo_time/timezone.h"
 
 // Header detection is conservative on older toolchains. Define to 1 only when
 // <string> and std::string are usable, or to 0 to omit allocating overloads.
@@ -229,6 +230,84 @@ inline String FormatIsoDateTimeArduino(const DateTime& value) {
 inline ParseResult ParseIsoDateTime(const String& text, DateTime* result) {
   return ParseIsoDateTime(text.c_str(), text.length(), result);
 }
+#endif
+
+// Timezone overloads resolve exactly once, then format a fixed-offset snapshot.
+// Requires the zone's documented instant range and a resulting local date in
+// years 1–9999, as for ToLocal(); otherwise behavior is undefined.
+// No zone abbreviations are inferred. Other formatting error contracts apply.
+inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
+                                   const char* format, size_t format_length,
+                                   char* buffer, size_t capacity) {
+  const DateTime local = ToLocal(instant, zone);
+  return FormatDateTime(local, format, format_length, buffer, capacity);
+}
+
+inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
+                                   const char* format, char* buffer,
+                                   size_t capacity) {
+  return FormatDateTime(instant, zone, format,
+                        format != nullptr ? std::strlen(format) : 1, buffer,
+                        capacity);
+}
+
+inline FormatResult FormatIsoDateTime(WallTime instant, const TimeZone& zone,
+                                      char* buffer, size_t capacity) {
+  return FormatDateTime(instant, zone, kIsoDateTimeFormat, buffer, capacity);
+}
+#if ROO_TIME_HAS_STRING_VIEW
+inline FormatResult FormatDateTime(WallTime instant, const TimeZone& zone,
+                                   roo::string_view format, char* buffer,
+                                   size_t capacity) {
+  return FormatDateTime(instant, zone, format.data(), format.size(), buffer,
+                        capacity);
+}
+#endif
+#if ROO_TIME_HAS_STD_STRING
+inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
+                                  const char* format, size_t format_length) {
+  const DateTime local = ToLocal(instant, zone);
+  return FormatDateTime(local, format, format_length);
+}
+
+inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
+                                  const char* format) {
+  return FormatDateTime(instant, zone, format,
+                        format != nullptr ? std::strlen(format) : 1);
+}
+
+inline std::string FormatIsoDateTime(WallTime instant, const TimeZone& zone) {
+  return FormatDateTime(instant, zone, kIsoDateTimeFormat);
+}
+#if ROO_TIME_HAS_STRING_VIEW
+inline std::string FormatDateTime(WallTime instant, const TimeZone& zone,
+                                  roo::string_view format) {
+  return FormatDateTime(instant, zone, format.data(), format.size());
+}
+#endif
+#endif
+#if defined(ARDUINO)
+inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
+                                    const char* format, size_t format_length) {
+  const DateTime local = ToLocal(instant, zone);
+  return FormatDateTimeArduino(local, format, format_length);
+}
+
+inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
+                                    const char* format) {
+  return FormatDateTimeArduino(instant, zone, format,
+                               format != nullptr ? std::strlen(format) : 1);
+}
+
+inline String FormatIsoDateTimeArduino(WallTime instant, const TimeZone& zone) {
+  return FormatDateTimeArduino(instant, zone, kIsoDateTimeFormat);
+}
+#if ROO_TIME_HAS_STRING_VIEW
+inline String FormatDateTimeArduino(WallTime instant, const TimeZone& zone,
+                                    roo::string_view format) {
+  return FormatDateTimeArduino(instant, zone, format.data(), format.size());
+}
+#endif
 #endif
 
 }  // namespace roo_time
