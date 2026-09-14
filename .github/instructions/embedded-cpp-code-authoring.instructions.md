@@ -48,9 +48,8 @@ policy on top of this baseline.
 - All public classes and public methods should have Doxygen comments at the
   declaration site.
 - Always leave an empty line between declarations or implementations. The
-  only exception is a group of private, uncommented functions or methods
-  declared and immediately defined inline, each entirely on a single line.
-  Preserve this spacing when running the formatter.
+  only exception is a group of declarations or definitions that each fit
+  entirely on a single line, including any comments.
 - Doxygen comments should summarize implemented behavior, or intended behavior
   for pure-virtual and otherwise contract-defining declarations.
 - Every code change must ship with focused unit tests.
