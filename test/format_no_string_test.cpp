@@ -4,6 +4,53 @@
 #define ROO_TIME_HAS_STRING_VIEW 0
 #include "roo_time/format.h"
 
+namespace {
+
+// Verifies fractions retain their full range, including on 16-bit-int targets.
+bool CheckFractions() {
+  using namespace roo_time;
+  struct Case {
+    uint32_t micros;
+    const char* text;
+  };
+  const Case cases[] = {{32767, "032767"},  {32768, "032768"},
+                        {65535, "065535"},  {65536, "065536"},
+                        {500000, "500000"}, {999999, "999999"}};
+  for (const Case& c : cases) {
+    const DateTime value(2024, 2, 29, 0, 0, 0, c.micros, timezone::UTC);
+    char buffer[7];
+    if (FormatDateTime(value, "%f", buffer, sizeof(buffer)).status !=
+            TextStatus::kOk ||
+        std::strcmp(buffer, c.text) != 0)
+      return false;
+
+    char input[] = "2024-02-29.000000";
+    std::memcpy(input + 11, c.text, 6);
+    DateTime parsed;
+    if (ParseDateTime(input, sizeof(input) - 1, "%F.%f", timezone::UTC, &parsed)
+                .status != TextStatus::kOk ||
+        parsed != value)
+      return false;
+  }
+
+  DateTime parsed;
+  const char scaled[] = "2024-02-29.5";
+  if (ParseDateTime(scaled, sizeof(scaled) - 1, "%F.%f", timezone::UTC, &parsed)
+              .status != TextStatus::kOk ||
+      parsed.micros() != 500000UL)
+    return false;
+
+  // These fractions have identical low 16 bits but must not compare equal.
+  const DateTime original = parsed;
+  const char conflicting[] = "2024-02-29.016959/999999";
+  return ParseDateTime(conflicting, sizeof(conflicting) - 1, "%F.%f/%f",
+                       timezone::UTC, &parsed)
+                 .status == TextStatus::kInvalidInput &&
+         parsed == original;
+}
+
+}  // namespace
+
 int main() {
   using namespace roo_time;
   char buffer[32];
@@ -27,6 +74,7 @@ int main() {
   FixedTimeZone zone(UtcOffset(Hours(1)));
   auto zoned = FormatIsoDateTime(output.wallTime(), zone, iso, sizeof(iso));
   if (zoned.status != TextStatus::kOk ||
-      std::strcmp(iso, "2024-02-29T01:00:00.000000+01:00") != 0) return 5;
-  return 0;
+      std::strcmp(iso, "2024-02-29T01:00:00.000000+01:00") != 0)
+    return 5;
+  return CheckFractions() ? 0 : 6;
 }

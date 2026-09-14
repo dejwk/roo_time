@@ -100,7 +100,7 @@ class Writer {
     if (capacity_ != 0 && size_ < capacity_ - 1) buffer_[size_] = c;
     ++size_;
   }
-  void number(unsigned value, unsigned width) {
+  void number(uint32_t value, unsigned width) {
     char digits[6];
     for (unsigned i = width; i > 0; --i) {
       digits[i - 1] = '0' + value % 10;
@@ -178,7 +178,7 @@ class Parser {
     return true;
   }
 
-  bool number(unsigned width, int& value) {
+  bool number(unsigned width, int32_t& value) {
     value = 0;
     for (unsigned i = 0; i < width; ++i) {
       if (!digit()) return fail(TextStatus::kInvalidInput);
@@ -189,7 +189,7 @@ class Parser {
 
   bool directive(char code) {
     const size_t start = pos;
-    int value = 0;
+    int32_t value = 0;
     Field field;
     int minimum = 0, maximum = 59;
     unsigned width = 2;
@@ -241,7 +241,7 @@ class Parser {
           return fail(TextStatus::kInvalidInput);
         }
         const bool negative = text_[pos++] == '-';
-        int hours, minutes;
+        int32_t hours, minutes;
         if (!number(2, hours)) return false;
         if (code == ':' && !literal(':')) return false;
         if (!number(2, minutes)) return false;
@@ -273,7 +273,7 @@ class Parser {
 
   size_t pos = 0;
   TextStatus status = TextStatus::kOk;
-  int fields[kCount] = {};
+  int32_t fields[kCount] = {};
   bool seen[kCount] = {};
 
  private:
@@ -286,7 +286,7 @@ class Parser {
     pos = position;
     return fail(error);
   }
-  bool set(Field field, int value, size_t start) {
+  bool set(Field field, int32_t value, size_t start) {
     if (seen[field] && fields[field] != value)
       return fail(TextStatus::kInvalidInput, start);
     fields[field] = value;
@@ -372,7 +372,7 @@ ParseResult ParseDateTime(const char* text, size_t length, const char* format,
     }
   }
   if (!parser.complete()) return {parser.status, parser.pos};
-  const int* f = parser.fields;
+  const int32_t* f = parser.fields;
   *result = DateTime(
       f[kYear], f[kMonth], f[kDay], f[kHour], f[kMinute], f[kSecond],
       f[kMicros],
