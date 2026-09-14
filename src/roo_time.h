@@ -54,27 +54,32 @@ class DurationConversions {
     return inHoursRoundedDown();
   }
 
-  /// Returns duration in milliseconds, rounded toward zero.
+  /// Returns duration in milliseconds, rounded toward zero. For non-negative
+  /// durations, this is equivalent to inMillisFloor().
   [[nodiscard]] constexpr int64_t inMillisRoundedDown() const {
     return derived().inMicros() / 1000LL;
   }
 
-  /// Returns duration in seconds, rounded toward zero.
+  /// Returns duration in seconds, rounded toward zero. For non-negative
+  /// durations, this is equivalent to inSecondsFloor().
   [[nodiscard]] constexpr int64_t inSecondsRoundedDown() const {
     return derived().inMicros() / 1000000LL;
   }
 
-  /// Returns duration in minutes, rounded toward zero.
+  /// Returns duration in minutes, rounded toward zero. For non-negative
+  /// durations, this is equivalent to inMinutesFloor().
   [[nodiscard]] constexpr int64_t inMinutesRoundedDown() const {
     return derived().inMicros() / 60000000LL;
   }
 
-  /// Returns duration in hours, rounded toward zero.
+  /// Returns duration in hours, rounded toward zero. For non-negative
+  /// durations, this is equivalent to inHoursFloor().
   [[nodiscard]] constexpr int64_t inHoursRoundedDown() const {
     return derived().inMicros() / 3600000000LL;
   }
 
-  /// Returns duration in milliseconds, rounded away from zero.
+  /// Returns duration in milliseconds, rounded away from zero. For
+  /// non-negative durations, this is equivalent to inMillisCeiling().
   [[nodiscard]] constexpr int64_t inMillisRoundedUp() const {
     int64_t q = derived().inMicros() / 1000LL;
     int64_t r = derived().inMicros() % 1000LL;
@@ -82,7 +87,8 @@ class DurationConversions {
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
-  /// Returns duration in seconds, rounded away from zero.
+  /// Returns duration in seconds, rounded away from zero. For non-negative
+  /// durations, this is equivalent to inSecondsCeiling().
   [[nodiscard]] constexpr int64_t inSecondsRoundedUp() const {
     int64_t q = derived().inMicros() / 1000000LL;
     int64_t r = derived().inMicros() % 1000000LL;
@@ -90,7 +96,8 @@ class DurationConversions {
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
-  /// Returns duration in minutes, rounded away from zero.
+  /// Returns duration in minutes, rounded away from zero. For non-negative
+  /// durations, this is equivalent to inMinutesCeiling().
   [[nodiscard]] constexpr int64_t inMinutesRoundedUp() const {
     int64_t q = derived().inMicros() / 60000000LL;
     int64_t r = derived().inMicros() % 60000000LL;
@@ -98,12 +105,61 @@ class DurationConversions {
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
-  /// Returns duration in hours, rounded away from zero.
+  /// Returns duration in hours, rounded away from zero. For non-negative
+  /// durations, this is equivalent to inHoursCeiling().
   [[nodiscard]] constexpr int64_t inHoursRoundedUp() const {
     int64_t q = derived().inMicros() / 3600000000LL;
     int64_t r = derived().inMicros() % 3600000000LL;
     if (r == 0) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
+  }
+
+  /// Returns duration in milliseconds rounded toward negative infinity. For
+  /// non-negative durations, this is equivalent to inMillisRoundedDown().
+  [[nodiscard]] constexpr int64_t inMillisFloor() const {
+    return FloorInUnits(1000LL);
+  }
+
+  /// Returns duration in seconds rounded toward negative infinity. For
+  /// non-negative durations, this is equivalent to inSecondsRoundedDown().
+  [[nodiscard]] constexpr int64_t inSecondsFloor() const {
+    return FloorInUnits(1000000LL);
+  }
+
+  /// Returns duration in minutes rounded toward negative infinity. For
+  /// non-negative durations, this is equivalent to inMinutesRoundedDown().
+  [[nodiscard]] constexpr int64_t inMinutesFloor() const {
+    return FloorInUnits(60000000LL);
+  }
+
+  /// Returns duration in hours rounded toward negative infinity. For
+  /// non-negative durations, this is equivalent to inHoursRoundedDown().
+  [[nodiscard]] constexpr int64_t inHoursFloor() const {
+    return FloorInUnits(3600000000LL);
+  }
+
+  /// Returns duration in milliseconds rounded toward positive infinity. For
+  /// non-negative durations, this is equivalent to inMillisRoundedUp().
+  [[nodiscard]] constexpr int64_t inMillisCeiling() const {
+    return CeilingInUnits(1000LL);
+  }
+
+  /// Returns duration in seconds rounded toward positive infinity. For
+  /// non-negative durations, this is equivalent to inSecondsRoundedUp().
+  [[nodiscard]] constexpr int64_t inSecondsCeiling() const {
+    return CeilingInUnits(1000000LL);
+  }
+
+  /// Returns duration in minutes rounded toward positive infinity. For
+  /// non-negative durations, this is equivalent to inMinutesRoundedUp().
+  [[nodiscard]] constexpr int64_t inMinutesCeiling() const {
+    return CeilingInUnits(60000000LL);
+  }
+
+  /// Returns duration in hours rounded toward positive infinity. For
+  /// non-negative durations, this is equivalent to inHoursRoundedUp().
+  [[nodiscard]] constexpr int64_t inHoursCeiling() const {
+    return CeilingInUnits(3600000000LL);
   }
 
   /// Returns duration in milliseconds, rounded to nearest (ties away from
@@ -164,6 +220,22 @@ class DurationConversions {
   }
 
  private:
+  // Divides a microsecond count into positive-sized units with mathematical
+  // floor semantics, despite C++ integer division truncating toward zero.
+  constexpr int64_t FloorInUnits(int64_t units) const {
+    const int64_t micros = derived().inMicros();
+    const int64_t quotient = micros / units;
+    return micros % units < 0 ? quotient - 1 : quotient;
+  }
+
+  // Divides a microsecond count into positive-sized units with mathematical
+  // ceiling semantics.
+  constexpr int64_t CeilingInUnits(int64_t units) const {
+    const int64_t micros = derived().inMicros();
+    const int64_t quotient = micros / units;
+    return micros % units > 0 ? quotient + 1 : quotient;
+  }
+
   constexpr const Derived& derived() const {
     return static_cast<const Derived&>(*this);
   }

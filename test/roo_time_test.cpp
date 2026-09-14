@@ -1,9 +1,9 @@
+#include "roo_time.h"
+
 #include <limits>
 #include <type_traits>
 
 #include "gtest/gtest.h"
-
-#include "roo_time.h"
 
 namespace roo_time {
 
@@ -51,6 +51,8 @@ TEST(Duration, Comparison) {
   EXPECT_FALSE(Micros(169) <= Micros(150));
 }
 
+// Verifies toward-zero, away-from-zero, floor, and ceiling semantics at unit
+// boundaries for positive and negative durations.
 TEST(Duration, RoundingSignBehavior) {
   Duration positive = Micros(1501);
   EXPECT_EQ(1, positive.inMillisRoundedDown());
@@ -68,6 +70,17 @@ TEST(Duration, RoundingSignBehavior) {
 
   EXPECT_EQ(-1, Micros(-3600000001LL).inHoursRoundedDown());
   EXPECT_EQ(-2, Micros(-3600000001LL).inHoursRoundedUp());
+
+  EXPECT_EQ(-2, Micros(-1501).inMillisFloor());
+  EXPECT_EQ(-1, Micros(-1501).inMillisCeiling());
+  EXPECT_EQ(1, Micros(1501).inMillisFloor());
+  EXPECT_EQ(2, Micros(1501).inMillisCeiling());
+  EXPECT_EQ(-2, Micros(-1000001).inSecondsFloor());
+  EXPECT_EQ(-1, Micros(-1000001).inSecondsCeiling());
+  EXPECT_EQ(-2, Micros(-60000001).inMinutesFloor());
+  EXPECT_EQ(-1, Micros(-60000001).inMinutesCeiling());
+  EXPECT_EQ(-2, Micros(-3600000001LL).inHoursFloor());
+  EXPECT_EQ(-1, Micros(-3600000001LL).inHoursCeiling());
 
   EXPECT_EQ(0, Micros(499).inMillisRoundedNearest());
   EXPECT_EQ(1, Micros(500).inMillisRoundedNearest());
@@ -226,7 +239,7 @@ TEST(DurationComponents, LargeValuesAndLimits) {
   for (int64_t days : {0LL, 24855LL, 24856LL, 30000LL, 67108863LL}) {
     for (int sign : {-1, 1}) {
       const auto duration = sign * (Hours(days * 24) + Hours(23) + Minutes(59) +
-                              Seconds(59) + Micros(999999));
+                                    Seconds(59) + Micros(999999));
       EXPECT_EQ(duration, Duration::FromComponents(duration.toComponents()));
     }
   }
@@ -247,8 +260,8 @@ TEST(DurationComponents, LargeValuesAndLimits) {
 
 TEST(DateTime, NegativeEpochRoundTrip) {
   using namespace roo_time;
-  for (int64_t micros : {-86400000001LL, -86400000000LL, -86399999999LL,
-                         -1LL, 0LL, 1LL}) {
+  for (int64_t micros :
+       {-86400000001LL, -86400000000LL, -86399999999LL, -1LL, 0LL, 1LL}) {
     for (int offset_hours : {-12, 0, 14}) {
       UtcOffset tz(Hours(offset_hours));
       WallTime wall(Micros(micros));
