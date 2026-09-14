@@ -1,4 +1,4 @@
-#include "roo_time.h"
+#include "roo_time/uptime.h"
 
 #if defined(ARDUINO_ARCH_RP2040) && defined(__has_include)
 #if __has_include(<pico/time.h>)

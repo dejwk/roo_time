@@ -82,10 +82,14 @@ cc_test(
 cc_library(
     name = "core",
     srcs = [
-        "src/roo_time.cpp",
+        "src/roo_time/duration.cpp",
+        "src/roo_time/wall_time.cpp",
         "src/roo_time/timezone.cpp",
         "src/roo_time/timezone.h",
         "src/roo_time.h",
+        "src/roo_time/duration.h",
+        "src/roo_time/uptime.h",
+        "src/roo_time/wall_time.h",
         "src/roo_time/chrono.h",
     ],
     includes = [
