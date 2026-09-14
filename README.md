@@ -605,10 +605,28 @@ Choose the appropriate base offset separately. No geographic database,
 lunar-calendar rules, one-off exceptions, or more than two annual transitions
 are included.
 
-For other rules, implement the single virtual `resolveOffset` method. An adapter
-can consult a device-specific rule, a transition table, or AceTime. It must
+For custom rules, implement the single virtual `resolveOffset` method. It must
 document its minimum and maximum accepted instants and return an offset for
-every instant within that range. No AceTime dependency or adapter is bundled.
+every instant within that range.
+
+For applications that need advanced timezone support—such as a comprehensive
+named-zone database, historically accurate transition data, or exceptions that
+cannot be expressed by two recurring annual transitions—use
+[AceTime](https://github.com/bxparks/AceTime). `roo_time/acetime.h` is an
+optional header-only adapter for its `ace_time::TimeZone`. It is not included by
+`roo_time/timezone.h` and the normal `roo_time` Bazel target has no AceTime
+dependency. Include it only after AceTime is available through your build:
+
+```cpp
+#include <AceTime.h>
+#include "roo_time/acetime.h"
+
+ace_time::TimeZone ace_zone = /* created with an AceTime manager or processor */;
+roo_time::AceTimeZone zone(ace_zone);
+```
+
+The adapter preserves AceTime's supported instant range and requires its
+resolved total offset to be a whole number of minutes.
 
 ### Compact timing contracts
 

@@ -96,6 +96,24 @@ cc_library(
     ],
 )
 
+# Optional header-only adapter. Consumers provide AceTime through their own
+# include path and dependency graph.
+cc_library(
+    name = "acetime",
+    hdrs = ["src/roo_time/acetime.h"],
+    includes = ["src"],
+    visibility = ["//visibility:public"],
+    deps = [":core"],
+)
+
+cc_test(
+    name = "acetime_test",
+    size = "small",
+    srcs = ["test/acetime_test.cpp", "test/stubs/AceTime.h"],
+    includes = ["test/stubs"],
+    deps = [":acetime"],
+)
+
 cc_library(
     name = "default_uptime_now",
     srcs = [
