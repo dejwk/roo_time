@@ -195,7 +195,10 @@ class Duration : public internal::DurationConversions<Duration> {
   constexpr Duration() : micros_(0) {}
 
   /// Returns the maximum representable duration.
-  static const Duration Max() { return Duration(0x7FFFFFFFFFFFFFFF); }
+  static constexpr Duration Max() { return Duration(INT64_MAX); }
+
+  /// Returns the minimum representable duration.
+  static constexpr Duration Min() { return Duration(INT64_MIN); }
 
   /// Returns duration in microseconds.
   [[nodiscard]] constexpr int64_t inMicros() const { return micros_; }
@@ -734,27 +737,54 @@ void DelayUntil(Uptime deadline);
 
 /// Represents absolute wall time since Unix epoch.
 ///
-/// Stored with microsecond precision and 64-bit range. Does not account for
-/// leap seconds.
+/// Stored with microsecond precision; INT64_MIN is reserved for invalid time.
+/// Arithmetic requires valid operands and representable, valid results.
+/// Does not account for leap seconds.
 class WallTime {
  public:
-  /// Constructs epoch wall time.
-  WallTime() {}
+  /// Constructs an 'unset' wall time.
+  static constexpr WallTime Unset() {
+    return WallTime(Duration::Min(), InitTag{});
+  }
+
+  /// Constructs the WallTime corresponding to the Unix Epoch (1970-01-01 00:00
+  /// UTC).
+  static constexpr WallTime Epoch() { return WallTime(Duration(), InitTag{}); }
+
+  /// Constructs the WallTime corresponding to the specified duration since Unix
+  /// Epoch (1970-01-01 00:00 UTC).
+  static constexpr WallTime SinceEpoch(Duration since_epoch) {
+    return WallTime(since_epoch, InitTag{});
+  }
+
+  /// Constructs wall time at the Unix epoch.
+  [[deprecated("Use WallTime::Epoch() instead")]]
+  constexpr WallTime()
+      : since_epoch_(Duration()) {}
 
   /// Constructs wall time from offset since Unix epoch.
-  explicit WallTime(Duration since_epoch) : since_epoch_(since_epoch) {}
+  [[deprecated("Use WallTime::SinceEpoch() instead")]]
+  explicit constexpr WallTime(Duration since_epoch)
+      : since_epoch_(since_epoch) {}
+
+  /// Returns true if this wall time is valid (not the unset value).
+  [[nodiscard]] constexpr bool isSet() const {
+    return since_epoch_ != Duration::Min();
+  }
 
   /// Returns elapsed duration since Unix epoch.
-  [[nodiscard]] Duration sinceEpoch() const { return since_epoch_; }
+  [[nodiscard]] constexpr Duration sinceEpoch() const { return since_epoch_; }
 
-  /// Adds duration to this wall time.
+  /// Adds duration to this wall time. The wall time must not be unset.
   WallTime& operator+=(const Duration& i) {
+    assert(isSet());
     since_epoch_ += i;
     return *this;
   }
 
-  /// Subtracts duration from this wall time.
+  /// Subtracts duration from this wall time. The wall time must not be unset.
   WallTime& operator-=(const Duration& i) {
+    assert(isSet());
     since_epoch_ -= i;
     return *this;
   }
@@ -763,6 +793,10 @@ class WallTime {
   friend WallTime operator+(const WallTime&, const Duration&);
   friend WallTime operator-(const WallTime&, const Duration&);
   friend WallTime operator+(const Duration&, const WallTime&);
+
+  struct InitTag {};
+  constexpr WallTime(Duration since_epoch, InitTag)
+      : since_epoch_(since_epoch) {}
 
   Duration since_epoch_;
 };
@@ -799,26 +833,30 @@ inline bool operator>=(const WallTime& a, const WallTime& b) {
 
 /// Returns elapsed duration between two wall times.
 inline Duration operator-(const WallTime& a, const WallTime& b) {
+  assert(a.isSet() && b.isSet());
   return a.sinceEpoch() - b.sinceEpoch();
 }
 
 /// Returns wall time shifted by duration.
 inline WallTime operator+(const WallTime& t, const Duration& i) {
-  return WallTime(t.sinceEpoch() + i);
+  assert(t.isSet());
+  return WallTime::SinceEpoch(t.sinceEpoch() + i);
 }
 
 /// Returns wall time shifted backwards by duration.
 inline WallTime operator-(const WallTime& t, const Duration& i) {
-  return WallTime(t.sinceEpoch() - i);
+  assert(t.isSet());
+  return WallTime::SinceEpoch(t.sinceEpoch() - i);
 }
 
 /// Returns wall time shifted by duration.
 inline WallTime operator+(const Duration& i, const WallTime& t) {
-  return WallTime(t.sinceEpoch() + i);
+  assert(t.isSet());
+  return WallTime::SinceEpoch(t.sinceEpoch() + i);
 }
 
 /// Abstract interface for obtaining current wall time.
-/// Validity and synchronization status must be tracked separately by the
+/// Check isSet() on returned values; synchronization status is tracked by the
 /// caller. Wall time may jump; use Uptime for elapsed measurement and
 /// deadlines.
 class WallTimeClock {
@@ -826,20 +864,20 @@ class WallTimeClock {
   /// Virtual destructor.
   virtual ~WallTimeClock() = default;
 
-  /// Returns current wall time.
+  /// Returns current wall time. Returns an unset wall time on read error.
   virtual WallTime now() const = 0;
 };
 
 #ifdef CTIME_HDR_DEFINED
 /// Wall-time clock backed by `gettimeofday`; does not initiate synchronization.
-/// Returns the Unix epoch on failure, without a separate error indication.
+/// Returns unset wall time when gettimeofday fails.
 class SystemClock : public WallTimeClock {
  public:
   /// Returns current system wall time.
   WallTime now() const override {
     struct timeval tv;
-    if (gettimeofday(&tv, nullptr)) return WallTime();
-    return WallTime(Micros(tv.tv_sec * 1000000LL + tv.tv_usec));
+    if (gettimeofday(&tv, nullptr)) return WallTime::Unset();
+    return WallTime::SinceEpoch(Micros(tv.tv_sec * 1000000LL + tv.tv_usec));
   }
 };
 #endif
@@ -959,7 +997,7 @@ enum Month {
 class DateTime {
  public:
   /// Constructs `DateTime` representing the Unix epoch in UTC.
-  DateTime() : DateTime(WallTime(), timezone::UTC) {}
+  DateTime() : DateTime(WallTime::Epoch(), timezone::UTC) {}
 
   /// Constructs `DateTime` at midnight of a date in the specified time zone.
   ///
@@ -981,7 +1019,8 @@ class DateTime {
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
            uint8_t minute, uint8_t second, uint32_t micros, UtcOffset tz);
 
-  /// Constructs `DateTime` for `wallTime` in time zone `tz`.
+  /// Constructs `DateTime` for `wallTime` in time zone `tz`. The `wallTime`
+  /// must be set.
   DateTime(WallTime wallTime, UtcOffset tz);
 
   /// Returns `WallTime` corresponding to this `DateTime`.
@@ -1046,7 +1085,7 @@ class DateTime {
 #endif
 
  private:
-  WallTime walltime_;
+  WallTime walltime_ = WallTime::Unset();
   UtcOffset offset_;
   int16_t year_;
   uint8_t month_;
@@ -1092,7 +1131,11 @@ inline std::ostream& operator<<(std::ostream& os, const roo_time::Uptime& t) {
 
 /// Streams textual `WallTime` representation for tests.
 inline std::ostream& operator<<(std::ostream& os, const roo_time::WallTime& t) {
-  os << t.sinceEpoch() << " since Epoch";
+  if (t.isSet()) {
+    os << t.sinceEpoch() << " since Epoch";
+  } else {
+    os << "<unset>";
+  }
   return os;
 }
 

@@ -1,6 +1,7 @@
 #include "roo_time.h"
 
 #include <limits>
+#include <sstream>
 #include <type_traits>
 
 #include "gtest/gtest.h"
@@ -139,8 +140,8 @@ TEST(Uptime, Comparison) {
 }
 
 TEST(WallTime, Arithmetics) {
-  WallTime a = WallTime(Micros(150));
-  WallTime b = WallTime(Micros(27));
+  WallTime a = WallTime::SinceEpoch(Micros(150));
+  WallTime b = WallTime::SinceEpoch(Micros(27));
   EXPECT_EQ(123, (a - b).inMicros());
   Duration delta = Micros(13);
   EXPECT_EQ(136, (a - b + delta).inMicros());
@@ -153,7 +154,7 @@ TEST(WallTime, Arithmetics) {
 }
 
 TEST(WallTime, Comparison) {
-  WallTime base;
+  WallTime base = WallTime::Epoch();
   EXPECT_EQ(base + Micros(150), base + Micros(150));
   EXPECT_FALSE(base + Micros(150) != base + Micros(150));
   EXPECT_NE(base + Micros(150), base + Micros(151));
@@ -199,7 +200,8 @@ TEST(DateTime, FromDateTimeCest) {
 }
 
 TEST(DateTime, FromUnixCest) {
-  DateTime d(WallTime(Micros(1590443851000001)), UtcOffset(Hours(2)));
+  DateTime d(WallTime::SinceEpoch(Micros(1590443851000001)),
+             UtcOffset(Hours(2)));
   EXPECT_EQ(2020, d.year());
   EXPECT_EQ(kMay, d.month());
   EXPECT_EQ(25, d.day());
@@ -209,13 +211,14 @@ TEST(DateTime, FromUnixCest) {
 }
 
 TEST(DateTime, ComparisonSemantics) {
-  DateTime same_instant_different_tz(WallTime(Micros(1590443851000001)),
-                                     UtcOffset(Hours(2)));
-  DateTime same_instant_utc(WallTime(Micros(1590443851000001)), timezone::UTC);
+  DateTime same_instant_different_tz(
+      WallTime::SinceEpoch(Micros(1590443851000001)), UtcOffset(Hours(2)));
+  DateTime same_instant_utc(WallTime::SinceEpoch(Micros(1590443851000001)),
+                            timezone::UTC);
   EXPECT_NE(same_instant_different_tz, same_instant_utc);
 
-  DateTime same_tz_different_instant(WallTime(Micros(1590443851000002)),
-                                     UtcOffset(Hours(2)));
+  DateTime same_tz_different_instant(
+      WallTime::SinceEpoch(Micros(1590443851000002)), UtcOffset(Hours(2)));
   EXPECT_NE(same_instant_different_tz, same_tz_different_instant);
 }
 
@@ -251,14 +254,14 @@ TEST(DateTime, NegativeEpochRoundTrip) {
        {-86400000001LL, -86400000000LL, -86399999999LL, -1LL, 0LL, 1LL}) {
     for (int offset_hours : {-12, 0, 14}) {
       UtcOffset tz(Hours(offset_hours));
-      WallTime wall(Micros(micros));
+      WallTime wall = WallTime::SinceEpoch(Micros(micros));
       DateTime date(wall, tz);
       DateTime rebuilt(date.year(), date.month(), date.day(), date.hour(),
                        date.minute(), date.second(), date.micros(), tz);
       EXPECT_EQ(wall, rebuilt.wallTime());
     }
   }
-  DateTime date(WallTime(Micros(-1)), timezone::UTC);
+  DateTime date(WallTime::SinceEpoch(Micros(-1)), timezone::UTC);
   EXPECT_EQ(1969, date.year());
   EXPECT_EQ(kDecember, date.month());
   EXPECT_EQ(31, date.day());
@@ -370,3 +373,112 @@ TEST(UtcOffset, LegacyCompatibility) {
   EXPECT_NE(date, DateTime(date.wallTime(), timezone::UTC));
 }
 #pragma GCC diagnostic pop
+
+// Verifies duration endpoints and the reserved wall-time sentinel at compile
+// time.
+TEST(WallTime, InvalidSentinelAndLimits) {
+  using namespace roo_time;
+  static_assert(Duration::Min().inMicros() == INT64_MIN, "minimum duration");
+  static_assert(Duration::Max().inMicros() == INT64_MAX, "maximum duration");
+  constexpr WallTime invalid = WallTime::Unset();
+  static_assert(!invalid.isSet(), "explicit unset is invalid");
+  static_assert(!WallTime::SinceEpoch(Duration::Min()).isSet(),
+                "reserved sentinel");
+  static_assert(WallTime::SinceEpoch(Micros(INT64_MIN + 1)).isSet(),
+                "first valid value");
+  static_assert(WallTime::SinceEpoch(Duration::Max()).isSet(),
+                "last valid value");
+  constexpr WallTime epoch = WallTime::Epoch();
+  static_assert(epoch.isSet(), "epoch remains valid");
+  static_assert(epoch.sinceEpoch().inMicros() == 0, "constexpr access");
+  EXPECT_EQ(invalid, WallTime::SinceEpoch(Duration::Min()));
+  EXPECT_NE(invalid, epoch);
+  EXPECT_EQ(WallTime::SinceEpoch(Micros(-1)), epoch - Micros(1));
+  EXPECT_EQ(epoch, WallTime::SinceEpoch(Micros(-1)) + Micros(1));
+  EXPECT_EQ(epoch, Micros(1) + WallTime::SinceEpoch(Micros(-1)));
+  WallTime shifted = epoch;
+  shifted += Seconds(1);
+  shifted -= Seconds(2);
+  EXPECT_EQ(Seconds(-1), shifted - epoch);
+}
+
+// Verifies the default DateTime still represents the epoch, not invalid time.
+TEST(DateTime, DefaultRemainsEpoch) {
+  using namespace roo_time;
+  const DateTime date;
+  EXPECT_TRUE(date.wallTime().isSet());
+  EXPECT_EQ(WallTime::SinceEpoch(Micros(0)), date.wallTime());
+  EXPECT_EQ(DateTime(1970, 1, 1, timezone::UTC), date);
+  EXPECT_EQ(1970, date.year());
+  EXPECT_EQ(kJanuary, date.month());
+  EXPECT_EQ(1, date.day());
+  EXPECT_EQ(0, date.hour());
+  EXPECT_EQ(0, date.minute());
+  EXPECT_EQ(0, date.second());
+  EXPECT_EQ(0u, date.micros());
+}
+
+#ifndef NDEBUG
+// Verifies invalid clock readings are rejected before arithmetic/conversion.
+TEST(WallTimeDeathTest, RejectsInvalidArithmeticAndCalendarConversion) {
+  using namespace roo_time;
+  EXPECT_DEATH(
+      { DateTime date(WallTime::Unset(), UtcOffset(Minutes(-1))); }, "isSet");
+  EXPECT_DEATH(
+      {
+        WallTime value = WallTime::Unset();
+        value += Seconds(1);
+      },
+      "isSet");
+  EXPECT_DEATH(
+      {
+        WallTime value = WallTime::Unset();
+        value -= Seconds(1);
+      },
+      "isSet");
+  EXPECT_DEATH({ (void)(WallTime::Unset() + Seconds(1)); }, "isSet");
+  EXPECT_DEATH({ (void)(Seconds(1) + WallTime::Unset()); }, "isSet");
+  EXPECT_DEATH({ (void)(WallTime::Unset() - Seconds(1)); }, "isSet");
+  EXPECT_DEATH(
+      { (void)(WallTime::Unset() - WallTime::SinceEpoch(Micros(0))); },
+      "isSet");
+  EXPECT_DEATH(
+      { (void)(WallTime::SinceEpoch(Micros(0)) - WallTime::Unset()); },
+      "isSet");
+}
+#endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+// Verifies deprecated constructors preserve the named factories' values.
+TEST(WallTime, LegacyConstruction) {
+  using namespace roo_time;
+  constexpr WallTime default_time;
+  constexpr WallTime epoch(Micros(0));
+  constexpr WallTime before_epoch(Micros(-123));
+  static_assert(default_time.isSet(), "legacy default is set");
+  static_assert(default_time.sinceEpoch().inMicros() == 0,
+                "legacy default remains the Unix epoch");
+  static_assert(epoch.isSet(), "legacy epoch is set");
+  static_assert(before_epoch.sinceEpoch().inMicros() == -123,
+                "legacy duration construction remains constexpr");
+  EXPECT_EQ(WallTime::Epoch(), default_time);
+  EXPECT_EQ(WallTime::SinceEpoch(Micros(0)), default_time);
+  EXPECT_EQ(Seconds(1), (default_time + Seconds(1)).sinceEpoch());
+  EXPECT_EQ(DateTime(), DateTime(default_time, timezone::UTC));
+  EXPECT_EQ(WallTime::Epoch(), epoch);
+  EXPECT_EQ(WallTime::SinceEpoch(Micros(-123)), before_epoch);
+  EXPECT_EQ(WallTime::Unset(), WallTime(Duration::Min()));
+}
+#pragma GCC diagnostic pop
+
+#ifdef __linux__
+// Verifies diagnostic output distinguishes unset time from the Unix epoch.
+TEST(WallTime, StreamOutput) {
+  using namespace roo_time;
+  std::ostringstream output;
+  output << WallTime::Unset() << ";" << WallTime::Epoch() << ";"
+         << WallTime::SinceEpoch(Micros(-123));
+  EXPECT_EQ("<unset>;0 us since Epoch;-123 us since Epoch", output.str());
+}
+#endif

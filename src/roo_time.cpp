@@ -133,11 +133,12 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
   day_of_week_ = weekday_from_days(t);
   t = ((((t * 24) + hour) * 60 + minute) * 60 + second) * 1000000 + micros;
   day_of_year_ = day_of_year(year, month, day);
-  walltime_ = WallTime(Micros(t) - offset_.asDuration());
+  walltime_ = WallTime::SinceEpoch(Micros(t) - offset_.asDuration());
 }
 
 DateTime::DateTime(WallTime wall_time, UtcOffset offset)
     : walltime_(wall_time), offset_(offset) {
+  assert(wall_time.isSet());
   Duration sinceEpochTz = wall_time.sinceEpoch() + offset_.asDuration();
   constexpr int64_t kMicrosPerDay = 86400000000LL;
   const int64_t micros = sinceEpochTz.inMicros();

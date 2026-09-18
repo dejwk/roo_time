@@ -285,7 +285,7 @@ class MyClock : public WallTimeClock {
 
   WallTime now() const override {
     // Read time, e.g. as milliseconds since Epoch.
-    return WallTime(Millis(rtc_.millisSinceEpoch()));
+    return WallTime::SinceEpoch(Millis(rtc_.millisSinceEpoch()));
   }
 
  private:
@@ -432,7 +432,9 @@ and timer configuration requirements apply.
   Supply whole minutes within the signed 16-bit minute range. Construction
   truncates sub-minute offsets toward zero and does not validate the range.
 - Wall time follows Unix/POSIX time without distinct leap seconds. `DateTime()`
-  and `WallTime()` represent the Unix epoch, not the current time. `DateTime`
+  and `WallTime()` continue to represent the Unix epoch. Use `WallTime::Unset()`
+  for an explicit unset value. Prefer `WallTime::Epoch()` or
+  `WallTime::SinceEpoch(duration)` over the deprecated constructors. `DateTime`
   equality compares both the instant and offset; compare `wallTime()` when only
   the instant matters.
 
@@ -463,11 +465,14 @@ deep sleep or schedule asynchronous callbacks.
 
 ### Wall-clock validity and synchronization
 
-`WallTimeClock::now()` returns a value without validity or synchronization status.
-The adapter/application must separately track whether an RTC has been initialized
-or a network clock synchronized. `SystemClock` reads the system wall clock; it
-does not initiate NTP synchronization. It returns the Unix epoch if
-`gettimeofday` fails, which is indistinguishable from a successful epoch reading.
+`WallTimeClock::now()` returns unset wall time on read errors. Check `isSet()`
+before arithmetic or conversion to `DateTime`; these operations require valid
+inputs and assert that precondition in debug builds. `INT64_MIN` microseconds is
+reserved for invalid time; arithmetic results must fit and remain valid.
+Validity does not imply synchronization: the adapter/application must separately
+track whether an RTC has been initialized or a network clock synchronized.
+`SystemClock` does not initiate NTP synchronization. It returns unset wall time
+if `gettimeofday` fails, distinguishable from a successful epoch reading.
 
 Wall time can jump forward or backward after synchronization or manual adjustment.
 Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not

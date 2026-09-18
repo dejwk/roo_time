@@ -38,7 +38,6 @@ const char* wifi_password = "<enter your password>";
 // -- EXAMPLE STARTS HERE
 
 #include <Arduino.h>
-
 #include <WiFi.h>
 
 #include "roo_time.h"
@@ -70,6 +69,11 @@ void setup() {
 void loop() {
   // Obtain the absolute time.
   WallTime now = my_clock.now();
+  if (!now.isSet()) {
+    Serial.println("Unable to read system clock.");
+    delay(1000);
+    return;
+  }
 
   // Convert to local time.
   DateTime dt(now, kLocalTz);

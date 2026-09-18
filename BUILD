@@ -219,3 +219,12 @@ cc_test(
     srcs = ["test/chrono_disabled_test.cpp"],
     deps = [":core"],
 )
+
+# Wrap the host clock so read errors can be tested deterministically.
+cc_test(
+    name = "system_clock_test",
+    size = "small",
+    srcs = ["test/system_clock_test.cpp"],
+    linkopts = ["-Wl,--wrap=gettimeofday"],
+    deps = [":core", "@googletest//:gtest_main"],
+)
