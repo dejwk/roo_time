@@ -125,8 +125,11 @@ The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, an
 `micros()`.
 
 `TimeZone` remains available as a deprecated alias for `UtcOffset`; existing
-code continues to compile with a deprecation warning. The `timeZone()` accessor
-and `timezone::UTC` constant retain their existing names.
+code continues to compile with a deprecation warning. Prefer
+`DateTime::utcOffset()` over the deprecated `timeZone()` accessor, and
+`UtcOffset::asDuration()` over the deprecated `offset()` accessor.
+`timezone::UTC` retains its name. Offsets support direct equality and ordering
+comparisons, plus `inMinutes()`, `inSeconds()`, `inMillis()`, and `inMicros()`.
 
 Offsets are fixed; they do not automatically follow daylight-saving changes.
 For an application-specific rule, see the [DST example](#daylight-saving-example).

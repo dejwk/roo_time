@@ -1,9 +1,9 @@
+#include "roo_time.h"
+
 #include <limits>
 #include <type_traits>
 
 #include "gtest/gtest.h"
-
-#include "roo_time.h"
 
 namespace roo_time {
 
@@ -226,7 +226,7 @@ TEST(DurationComponents, LargeValuesAndLimits) {
   for (int64_t days : {0LL, 24855LL, 24856LL, 30000LL, 67108863LL}) {
     for (int sign : {-1, 1}) {
       const auto duration = sign * (Hours(days * 24) + Hours(23) + Minutes(59) +
-                              Seconds(59) + Micros(999999));
+                                    Seconds(59) + Micros(999999));
       EXPECT_EQ(duration, Duration::FromComponents(duration.toComponents()));
     }
   }
@@ -247,8 +247,8 @@ TEST(DurationComponents, LargeValuesAndLimits) {
 
 TEST(DateTime, NegativeEpochRoundTrip) {
   using namespace roo_time;
-  for (int64_t micros : {-86400000001LL, -86400000000LL, -86399999999LL,
-                         -1LL, 0LL, 1LL}) {
+  for (int64_t micros :
+       {-86400000001LL, -86400000000LL, -86399999999LL, -1LL, 0LL, 1LL}) {
     for (int offset_hours : {-12, 0, 14}) {
       UtcOffset tz(Hours(offset_hours));
       WallTime wall(Micros(micros));
@@ -288,11 +288,85 @@ static_assert(std::is_same<roo_time::TimeZone, roo_time::UtcOffset>::value,
 
 TEST(UtcOffset, ConstructionAndDateTimeIntegration) {
   using namespace roo_time;
-  EXPECT_EQ(Micros(0), UtcOffset().offset());
+  EXPECT_EQ(Micros(0), UtcOffset().asDuration());
   constexpr UtcOffset offset(Minutes(330));
-  static_assert(offset.offset().inMinutes() == 330, "constexpr construction");
+  static_assert(offset.asDuration().inMinutes() == 330,
+                "constexpr construction");
   DateTime date(2026, 9, 12, offset);
-  EXPECT_EQ(Minutes(330), date.timeZone().offset());
+  EXPECT_EQ(Minutes(330), date.utcOffset().asDuration());
   EXPECT_EQ(date, DateTime(date.wallTime(), offset));
-  EXPECT_EQ(Micros(0), timezone::UTC.offset());
+  EXPECT_EQ(Micros(0), timezone::UTC.asDuration());
 }
+
+// Verifies signed conversions across the complete representable minute range.
+TEST(UtcOffset, UnitConversions) {
+  using namespace roo_time;
+  constexpr UtcOffset zero;
+  static_assert(zero.inMinutes() == 0, "constexpr default construction");
+  constexpr UtcOffset minimum(Minutes(INT16_MIN));
+  static_assert(minimum.inMicros() == -1966080000000LL, "wide microseconds");
+  static_assert(minimum.inMillis() == -1966080000L, "wide milliseconds");
+  static_assert(minimum.inSeconds() == -1966080L, "wide seconds");
+  for (int32_t minutes = INT16_MIN; minutes <= INT16_MAX; ++minutes) {
+    const UtcOffset offset(Minutes(minutes));
+    EXPECT_EQ(minutes, offset.inMinutes());
+    EXPECT_EQ(minutes * 60LL, offset.inSeconds());
+    EXPECT_EQ(minutes * 60000LL, offset.inMillis());
+    EXPECT_EQ(minutes * 60000000LL, offset.inMicros());
+    EXPECT_EQ(Minutes(minutes), offset.asDuration());
+  }
+}
+
+// Verifies all comparisons use signed stored minutes, including both limits.
+TEST(UtcOffset, Comparisons) {
+  using namespace roo_time;
+  constexpr UtcOffset negative(Minutes(-1));
+  constexpr UtcOffset zero;
+  static_assert(zero == timezone::UTC, "constexpr equality");
+  static_assert(negative != zero, "constexpr inequality");
+  static_assert(negative < zero, "constexpr less");
+  static_assert(zero <= zero, "constexpr less or equal");
+  static_assert(zero > negative, "constexpr greater");
+  static_assert(zero >= zero, "constexpr greater or equal");
+  const int32_t values[] = {INT16_MIN, -720, -1, 0, 1, 330, INT16_MAX};
+  for (int32_t a : values) {
+    for (int32_t b : values) {
+      const UtcOffset lhs(Minutes(a));
+      const UtcOffset rhs(Minutes(b));
+      EXPECT_EQ(a == b, lhs == rhs);
+      EXPECT_EQ(a != b, lhs != rhs);
+      EXPECT_EQ(a < b, lhs < rhs);
+      EXPECT_EQ(a <= b, lhs <= rhs);
+      EXPECT_EQ(a > b, lhs > rhs);
+      EXPECT_EQ(a >= b, lhs >= rhs);
+    }
+  }
+}
+
+// Verifies sub-minute input truncates toward zero before conversion/comparison.
+TEST(UtcOffset, SubMinuteTruncation) {
+  using namespace roo_time;
+  for (int sign : {-1, 1}) {
+    EXPECT_EQ(timezone::UTC, UtcOffset(Micros(sign * 59999999LL)));
+    const UtcOffset offset(Micros(sign * 119999999LL));
+    EXPECT_EQ(UtcOffset(Minutes(sign)), offset);
+    EXPECT_EQ(Minutes(sign), offset.asDuration());
+  }
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+// Verifies the deprecated type and accessors still agree with the new API.
+TEST(UtcOffset, LegacyCompatibility) {
+  using namespace roo_time;
+  constexpr TimeZone legacy(Minutes(-330));
+  static_assert(legacy.offset() == legacy.asDuration(), "legacy duration");
+  const DateTime date(2026, 9, 12, legacy);
+  EXPECT_EQ(legacy, date.timeZone());
+  EXPECT_EQ(date.utcOffset(), date.timeZone());
+  EXPECT_EQ(legacy.asDuration(), date.timeZone().offset());
+  EXPECT_EQ(date, DateTime(date.wallTime(), date.utcOffset()));
+  EXPECT_EQ(date, DateTime(2026, 9, 12, UtcOffset(Minutes(-330))));
+  EXPECT_NE(date, DateTime(date.wallTime(), timezone::UTC));
+}
+#pragma GCC diagnostic pop

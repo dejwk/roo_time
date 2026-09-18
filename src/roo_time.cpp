@@ -27,7 +27,8 @@ Duration::Components Duration::toComponents() const {
 
 Duration Duration::FromComponents(const Duration::Components& c) {
   int64_t micros =
-      (((static_cast<int64_t>(c.days) * 24 + c.hours) * 60 + c.minutes) * 60 + c.seconds) *
+      (((static_cast<int64_t>(c.days) * 24 + c.hours) * 60 + c.minutes) * 60 +
+       c.seconds) *
           1000000LL +
       c.micros;
   if (c.negative) micros = -micros;
@@ -114,12 +115,13 @@ constexpr Int floor_mod(Int k, Int n) {
 
 }  // namespace
 
-DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, UtcOffset tz)
-    : DateTime(year, month, day, 0, 0, 0, 0, tz) {}
+DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, UtcOffset offset)
+    : DateTime(year, month, day, 0, 0, 0, 0, offset) {}
 
 DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
-                   uint8_t minute, uint8_t second, uint32_t micros, UtcOffset tz)
-    : tz_(tz),
+                   uint8_t minute, uint8_t second, uint32_t micros,
+                   UtcOffset offset)
+    : offset_(offset),
       year_(year),
       month_(month),
       day_(day),
@@ -131,12 +133,12 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
   day_of_week_ = weekday_from_days(t);
   t = ((((t * 24) + hour) * 60 + minute) * 60 + second) * 1000000 + micros;
   day_of_year_ = day_of_year(year, month, day);
-  walltime_ = WallTime(Micros(t) - tz.offset());
+  walltime_ = WallTime(Micros(t) - offset_.asDuration());
 }
 
-DateTime::DateTime(WallTime wall_time, UtcOffset tz)
-    : walltime_(wall_time), tz_(tz) {
-  Duration sinceEpochTz = wall_time.sinceEpoch() + tz.offset();
+DateTime::DateTime(WallTime wall_time, UtcOffset offset)
+    : walltime_(wall_time), offset_(offset) {
+  Duration sinceEpochTz = wall_time.sinceEpoch() + offset_.asDuration();
   constexpr int64_t kMicrosPerDay = 86400000000LL;
   const int64_t micros = sinceEpochTz.inMicros();
   int32_t unix_days = micros / kMicrosPerDay;

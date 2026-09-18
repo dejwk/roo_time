@@ -309,7 +309,7 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
   bool has_offset;
   if (!ValidFormat(format, format_length, has_offset))
     return {TextStatus::kInvalidFormat, 0};
-  int offset = static_cast<int>(value.timeZone().offset().inMinutes());
+  int offset = static_cast<int>(value.utcOffset().inMinutes());
   if (has_offset && (offset < -1439 || offset > 1439))
     return {TextStatus::kOutOfRange, 0};
 

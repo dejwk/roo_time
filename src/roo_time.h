@@ -4,8 +4,9 @@
 ///
 /// Provides duration, uptime, and wall-time abstractions.
 
-#include <cassert>
 #include <inttypes.h>
+
+#include <cassert>
 #include <type_traits>
 #if defined(ESP_PLATFORM) || defined(__linux__)
 #define CTIME_HDR_DEFINED
@@ -29,8 +30,9 @@ constexpr Duration Micros(Rep count);
 namespace internal {
 // Empty CRTP base: one implementation of all read-only unit conversions, with
 // no storage or virtual dispatch. Derived types provide inMicros().
-template <typename Derived> class DurationConversions {
-public:
+template <typename Derived>
+class DurationConversions {
+ public:
   /// Returns duration in milliseconds, rounded toward zero.
   [[nodiscard]] constexpr int64_t inMillis() const {
     return inMillisRoundedDown();
@@ -75,8 +77,7 @@ public:
   [[nodiscard]] constexpr int64_t inMillisRoundedUp() const {
     int64_t q = derived().inMicros() / 1000LL;
     int64_t r = derived().inMicros() % 1000LL;
-    if (r == 0)
-      return q;
+    if (r == 0) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -84,8 +85,7 @@ public:
   [[nodiscard]] constexpr int64_t inSecondsRoundedUp() const {
     int64_t q = derived().inMicros() / 1000000LL;
     int64_t r = derived().inMicros() % 1000000LL;
-    if (r == 0)
-      return q;
+    if (r == 0) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -93,8 +93,7 @@ public:
   [[nodiscard]] constexpr int64_t inMinutesRoundedUp() const {
     int64_t q = derived().inMicros() / 60000000LL;
     int64_t r = derived().inMicros() % 60000000LL;
-    if (r == 0)
-      return q;
+    if (r == 0) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -102,8 +101,7 @@ public:
   [[nodiscard]] constexpr int64_t inHoursRoundedUp() const {
     int64_t q = derived().inMicros() / 3600000000LL;
     int64_t r = derived().inMicros() % 3600000000LL;
-    if (r == 0)
-      return q;
+    if (r == 0) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -113,8 +111,7 @@ public:
     int64_t q = derived().inMicros() / 1000LL;
     int64_t r = derived().inMicros() % 1000LL;
     int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 1000LL)
-      return q;
+    if (ar * 2 < 1000LL) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -123,8 +120,7 @@ public:
     int64_t q = derived().inMicros() / 1000000LL;
     int64_t r = derived().inMicros() % 1000000LL;
     int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 1000000LL)
-      return q;
+    if (ar * 2 < 1000000LL) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -133,8 +129,7 @@ public:
     int64_t q = derived().inMicros() / 60000000LL;
     int64_t r = derived().inMicros() % 60000000LL;
     int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 60000000LL)
-      return q;
+    if (ar * 2 < 60000000LL) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -143,8 +138,7 @@ public:
     int64_t q = derived().inMicros() / 3600000000LL;
     int64_t r = derived().inMicros() % 3600000000LL;
     int64_t ar = r < 0 ? -r : r;
-    if (ar * 2 < 3600000000LL)
-      return q;
+    if (ar * 2 < 3600000000LL) return q;
     return derived().inMicros() > 0 ? q + 1 : q - 1;
   }
 
@@ -168,9 +162,9 @@ public:
     return derived().inMicros() / 3600000000.0;
   }
 
-private:
-  constexpr const Derived &derived() const {
-    return static_cast<const Derived &>(*this);
+ private:
+  constexpr const Derived& derived() const {
+    return static_cast<const Derived&>(*this);
   }
 };
 
@@ -178,7 +172,7 @@ constexpr int32_t CheckedSmallMillis(int64_t millis) {
   assert(millis >= INT32_MIN && millis <= INT32_MAX);
   return static_cast<int32_t>(millis);
 }
-} // namespace internal
+}  // namespace internal
 
 /// Represents an amount of time (e.g. 5s, 10min).
 ///
@@ -186,7 +180,7 @@ constexpr int32_t CheckedSmallMillis(int64_t millis) {
 /// Arithmetic is unchecked; inputs, intermediate results, and results must fit.
 /// For rounding and component saturation semantics, see README contracts.
 class Duration : public internal::DurationConversions<Duration> {
-public:
+ public:
   /// Calendar-like decomposition of a duration value.
   struct Components {
     bool negative : 1;
@@ -207,13 +201,13 @@ public:
   [[nodiscard]] constexpr int64_t inMicros() const { return micros_; }
 
   /// Adds another duration to this one.
-  Duration &operator+=(const Duration &other) {
+  Duration& operator+=(const Duration& other) {
     micros_ += other.inMicros();
     return *this;
   }
 
   /// Subtracts another duration from this one.
-  Duration &operator-=(const Duration &other) {
+  Duration& operator-=(const Duration& other) {
     micros_ -= other.inMicros();
     return *this;
   }
@@ -225,11 +219,11 @@ public:
 
   /// Reconstructs duration from normalized components.
   /// Requires hours < 24, minutes/seconds < 60, and micros < 1000000.
-  static Duration FromComponents(const Components &components);
+  static Duration FromComponents(const Components& components);
 
-private:
-  template <typename Rep, typename std::enable_if<
-      std::is_integral<Rep>::value, int>::type>
+ private:
+  template <typename Rep,
+            typename std::enable_if<std::is_integral<Rep>::value, int>::type>
   friend constexpr Duration Micros(Rep count);
 
   friend constexpr Duration Millis(float millis);
@@ -263,7 +257,7 @@ constexpr int64_t ScaleTimeCount(Rep count) {
   }
   return static_cast<int64_t>(count) * Unit;
 }
-} // namespace internal
+}  // namespace internal
 
 /// Constructs a full duration in microseconds.
 template <typename Rep,
@@ -351,7 +345,7 @@ inline constexpr Duration Hours(double count) {
 /// Signed 32-bit milliseconds. Arithmetic must remain representable; it does
 /// not wrap. Widening to Duration is implicit and lossless.
 class SmallDuration : public internal::DurationConversions<SmallDuration> {
-public:
+ public:
   constexpr SmallDuration() : millis_(0) {}
 
   static constexpr SmallDuration Millis(int32_t millis) {
@@ -373,91 +367,95 @@ public:
     return static_cast<Duration>(*this).toComponents();
   }
 
-  SmallDuration &operator+=(SmallDuration other) {
+  SmallDuration& operator+=(SmallDuration other) {
     millis_ = internal::CheckedSmallMillis(static_cast<int64_t>(millis_) +
                                            other.millis_);
     return *this;
   }
-  SmallDuration &operator-=(SmallDuration other) {
+  SmallDuration& operator-=(SmallDuration other) {
     millis_ = internal::CheckedSmallMillis(static_cast<int64_t>(millis_) -
                                            other.millis_);
     return *this;
   }
 
-private:
+ private:
   constexpr SmallDuration(int32_t millis, int) : millis_(millis) {}
   int32_t millis_;
 };
 
-/// Constructs compact millis from an integer; scaled milliseconds must fit int32_t.
+/// Constructs compact millis from an integer; scaled milliseconds must fit
+/// int32_t.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration SmallMillis(Rep count) {
-  return SmallDuration::Millis(internal::CheckedSmallMillis(
-      internal::ScaleTimeCount<1>(count)));
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(internal::ScaleTimeCount<1>(count)));
 }
 
-/// Constructs compact seconds from an integer; scaled milliseconds must fit int32_t.
+/// Constructs compact seconds from an integer; scaled milliseconds must fit
+/// int32_t.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration SmallSeconds(Rep count) {
-  return SmallDuration::Millis(internal::CheckedSmallMillis(
-      internal::ScaleTimeCount<1000>(count)));
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(internal::ScaleTimeCount<1000>(count)));
 }
 
-/// Constructs compact minutes from an integer; scaled milliseconds must fit int32_t.
+/// Constructs compact minutes from an integer; scaled milliseconds must fit
+/// int32_t.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration SmallMinutes(Rep count) {
-  return SmallDuration::Millis(internal::CheckedSmallMillis(
-      internal::ScaleTimeCount<60000>(count)));
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(internal::ScaleTimeCount<60000>(count)));
 }
 
-/// Constructs compact hours from an integer; scaled milliseconds must fit int32_t.
+/// Constructs compact hours from an integer; scaled milliseconds must fit
+/// int32_t.
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration SmallHours(Rep count) {
-  return SmallDuration::Millis(internal::CheckedSmallMillis(
-      internal::ScaleTimeCount<3600000>(count)));
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(internal::ScaleTimeCount<3600000>(count)));
 }
 
 /// Returns true if both durations are equal.
-inline constexpr bool operator==(const Duration &a, const Duration &b) {
+inline constexpr bool operator==(const Duration& a, const Duration& b) {
   return a.inMicros() == b.inMicros();
 }
 
 /// Returns true if durations differ.
-inline constexpr bool operator!=(const Duration &a, const Duration &b) {
+inline constexpr bool operator!=(const Duration& a, const Duration& b) {
   return a.inMicros() != b.inMicros();
 }
 
 /// Returns true if `a` is shorter than `b`.
-inline constexpr bool operator<(const Duration &a, const Duration &b) {
+inline constexpr bool operator<(const Duration& a, const Duration& b) {
   return a.inMicros() < b.inMicros();
 }
 
 /// Returns true if `a` is longer than `b`.
-inline constexpr bool operator>(const Duration &a, const Duration &b) {
+inline constexpr bool operator>(const Duration& a, const Duration& b) {
   return a.inMicros() > b.inMicros();
 }
 
 /// Returns true if `a` is not longer than `b`.
-inline constexpr bool operator<=(const Duration &a, const Duration &b) {
+inline constexpr bool operator<=(const Duration& a, const Duration& b) {
   return a.inMicros() <= b.inMicros();
 }
 
 /// Returns true if `a` is not shorter than `b`.
-inline constexpr bool operator>=(const Duration &a, const Duration &b) {
+inline constexpr bool operator>=(const Duration& a, const Duration& b) {
   return a.inMicros() >= b.inMicros();
 }
 
 /// Returns the sum of two durations.
-inline constexpr Duration operator+(const Duration &a, const Duration &b) {
+inline constexpr Duration operator+(const Duration& a, const Duration& b) {
   return Micros(a.inMicros() + b.inMicros());
 }
 
 /// Returns the difference between two durations.
-inline constexpr Duration operator-(const Duration &a, const Duration &b) {
+inline constexpr Duration operator-(const Duration& a, const Duration& b) {
   return Micros(a.inMicros() - b.inMicros());
 }
 
@@ -474,18 +472,17 @@ inline constexpr Duration operator*(Rep factor, Duration value) {
   return value * factor;
 }
 
-
 /// Multiplies in the factor's floating-point type, then truncates toward zero
 /// to microseconds. Factor and product must be finite; intermediate and final
 /// values must be representable. Floating conversion may lose precision.
-template <typename Rep,
-          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+template <typename Rep, typename std::enable_if<
+                            std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr Duration operator*(Duration value, Rep factor) {
   return Micros(static_cast<int64_t>(value.inMicros() * factor));
 }
 
-template <typename Rep,
-          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+template <typename Rep, typename std::enable_if<
+                            std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr Duration operator*(Rep factor, Duration value) {
   return value * factor;
 }
@@ -503,8 +500,9 @@ inline constexpr SmallDuration operator-(SmallDuration a, SmallDuration b) {
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration operator*(SmallDuration value, Rep factor) {
-  return SmallDuration::Millis(internal::CheckedSmallMillis(
-      static_cast<int64_t>(value.inMillis()) * internal::ScaleTimeCount<1>(factor)));
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(static_cast<int64_t>(value.inMillis()) *
+                                   internal::ScaleTimeCount<1>(factor)));
 }
 template <typename Rep,
           typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
@@ -512,19 +510,18 @@ inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
   return value * factor;
 }
 
-
 /// Multiplies in the factor's floating-point type, then truncates toward zero
 /// to milliseconds. Factor and product must be finite; intermediate and final
 /// values must be representable. Floating conversion may lose precision.
-template <typename Rep,
-          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+template <typename Rep, typename std::enable_if<
+                            std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration operator*(SmallDuration value, Rep factor) {
   return SmallDuration::Millis(internal::CheckedSmallMillis(
       static_cast<int64_t>(value.inMillis() * factor)));
 }
 
-template <typename Rep,
-          typename std::enable_if<std::is_floating_point<Rep>::value, int>::type = 0>
+template <typename Rep, typename std::enable_if<
+                            std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
   return value * factor;
 }
@@ -664,7 +661,7 @@ inline Uptime operator+(const Duration& i, const Uptime& u) {
 /// than 2^31 milliseconds, within the same clock domain. Equality compares
 /// bits.
 class SmallTimestamp {
-public:
+ public:
   constexpr SmallTimestamp() : millis_(0) {}
 
   /// Truncates uptime to milliseconds and retains its low 32 bits.
@@ -674,12 +671,13 @@ public:
   /// Generic Arduino uses millis(); see README for clock-domain differences.
   static SmallTimestamp Now();
 
-  /// Shift by a duration, truncating to milliseconds; the shift must fit int32_t.
-  SmallTimestamp &operator+=(Duration duration) {
+  /// Shift by a duration, truncating to milliseconds; the shift must fit
+  /// int32_t.
+  SmallTimestamp& operator+=(Duration duration) {
     millis_ += static_cast<uint32_t>(SmallDuration(duration).inMillis());
     return *this;
   }
-  SmallTimestamp &operator-=(Duration duration) {
+  SmallTimestamp& operator-=(Duration duration) {
     millis_ -= static_cast<uint32_t>(SmallDuration(duration).inMillis());
     return *this;
   }
@@ -692,26 +690,20 @@ public:
   }
   friend constexpr SmallDuration operator-(SmallTimestamp a, SmallTimestamp b) {
     const uint32_t delta = a.millis_ - b.millis_;
-    assert(delta != 0x80000000u); // Exactly half a cycle is ambiguous.
+    assert(delta != 0x80000000u);  // Exactly half a cycle is ambiguous.
     const int64_t signed_delta =
         delta <= INT32_MAX ? static_cast<int64_t>(delta)
                            : static_cast<int64_t>(delta) - 0x100000000LL;
     return SmallDuration::Millis(static_cast<int32_t>(signed_delta));
   }
 
-private:
+ private:
   uint32_t millis_;
 };
 
-inline SmallTimestamp operator+(SmallTimestamp t, Duration d) {
-  return t += d;
-}
-inline SmallTimestamp operator+(Duration d, SmallTimestamp t) {
-  return t += d;
-}
-inline SmallTimestamp operator-(SmallTimestamp t, Duration d) {
-  return t -= d;
-}
+inline SmallTimestamp operator+(SmallTimestamp t, Duration d) { return t += d; }
+inline SmallTimestamp operator+(Duration d, SmallTimestamp t) { return t += d; }
+inline SmallTimestamp operator-(SmallTimestamp t, Duration d) { return t -= d; }
 
 inline constexpr bool operator<(SmallTimestamp a, SmallTimestamp b) {
   return (a - b).inMillis() < 0;
@@ -728,9 +720,10 @@ inline constexpr bool operator>=(SmallTimestamp a, SmallTimestamp b) {
 
 /// Delays execution for `duration`.
 ///
-/// Zero and negative durations are no-ops. Positive waits recheck elapsed uptime
-/// and can overshoot due to scheduling. Requires a progressing clock and its
-/// concurrency/sampling contracts. Call in task/loop context, not from an ISR.
+/// Zero and negative durations are no-ops. Positive waits recheck elapsed
+/// uptime and can overshoot due to scheduling. Requires a progressing clock and
+/// its concurrency/sampling contracts. Call in task/loop context, not from an
+/// ISR.
 void Delay(Duration duration);
 
 /// Delays execution until `deadline`.
@@ -825,8 +818,9 @@ inline WallTime operator+(const Duration& i, const WallTime& t) {
 }
 
 /// Abstract interface for obtaining current wall time.
-/// Validity and synchronization status must be tracked separately by the caller.
-/// Wall time may jump; use Uptime for elapsed measurement and deadlines.
+/// Validity and synchronization status must be tracked separately by the
+/// caller. Wall time may jump; use Uptime for elapsed measurement and
+/// deadlines.
 class WallTimeClock {
  public:
   /// Virtual destructor.
@@ -856,20 +850,74 @@ class SystemClock : public WallTimeClock {
 class UtcOffset {
  public:
   /// Constructs a zero UTC offset.
-  UtcOffset() : offset_minutes_(0) {}
+  constexpr UtcOffset() : offset_minutes_(0) {}
 
   /// Constructs a fixed UTC offset.
   constexpr explicit UtcOffset(Duration offset)
       : offset_minutes_(offset.inMinutes()) {}
 
   /// Returns this fixed offset as a duration.
-  [[nodiscard]] constexpr Duration offset() const {
+  [[nodiscard]] [[deprecated("Use asDuration() instead")]]
+  constexpr Duration offset() const {
+    return asDuration();
+  }
+
+  /// Returns this fixed offset as a duration.
+  [[nodiscard]] constexpr Duration asDuration() const {
     return Minutes(offset_minutes_);
   }
+
+  /// Returns the offset value in microseconds.
+  [[nodiscard]] constexpr int64_t inMicros() const {
+    return offset_minutes_ * 60000000LL;
+  }
+
+  /// Returns the offset value in milliseconds.
+  [[nodiscard]] constexpr int32_t inMillis() const {
+    return static_cast<int32_t>(offset_minutes_) * 60000L;
+  }
+
+  /// Returns the offset value in seconds.
+  [[nodiscard]] constexpr int32_t inSeconds() const {
+    return static_cast<int32_t>(offset_minutes_) * 60;
+  }
+
+  /// Returns the offset value in minutes.
+  [[nodiscard]] constexpr int16_t inMinutes() const { return offset_minutes_; }
 
  private:
   int16_t offset_minutes_;
 };
+
+/// Returns true if both offsets are equal.
+inline constexpr bool operator==(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() == b.inMinutes();
+}
+
+/// Returns true if the offsets differ.
+inline constexpr bool operator!=(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() != b.inMinutes();
+}
+
+/// Returns true if the first offset is smaller.
+inline constexpr bool operator<(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() < b.inMinutes();
+}
+
+/// Returns true if the first offset is smaller or equal.
+inline constexpr bool operator<=(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() <= b.inMinutes();
+}
+
+/// Returns true if the first offset is larger.
+inline constexpr bool operator>(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() > b.inMinutes();
+}
+
+/// Returns true if the first offset is larger or equal.
+inline constexpr bool operator>=(UtcOffset a, UtcOffset b) {
+  return a.inMinutes() >= b.inMinutes();
+}
 
 /// Deprecated compatibility name. Prefer UtcOffset for fixed UTC offsets.
 using TimeZone [[deprecated("Use UtcOffset instead")]] = UtcOffset;
@@ -940,7 +988,13 @@ class DateTime {
   [[nodiscard]] WallTime wallTime() const { return walltime_; }
 
   /// Returns the fixed UTC offset of this `DateTime`.
-  [[nodiscard]] UtcOffset timeZone() const { return tz_; }
+  [[nodiscard]] [[deprecated("Use utcOffset() instead")]] UtcOffset timeZone()
+      const {
+    return offset_;
+  }
+
+  /// Returns the fixed UTC offset of this `DateTime`.
+  [[nodiscard]] UtcOffset utcOffset() const { return offset_; }
 
   /// Returns four-digit year.
   [[nodiscard]] int16_t year() const { return year_; }
@@ -993,7 +1047,7 @@ class DateTime {
 
  private:
   WallTime walltime_;
-  UtcOffset tz_;
+  UtcOffset offset_;
   int16_t year_;
   uint8_t month_;
   uint8_t day_;
@@ -1007,17 +1061,15 @@ class DateTime {
 
 /// Returns true if both date-times represent the same instant and offset.
 inline bool operator==(const DateTime& a, const DateTime& b) {
-  return a.wallTime() == b.wallTime() &&
-         a.timeZone().offset() == b.timeZone().offset();
+  return a.wallTime() == b.wallTime() && a.utcOffset() == b.utcOffset();
 }
 
 /// Returns true if date-times differ in instant or time-zone offset.
 inline bool operator!=(const DateTime& a, const DateTime& b) {
-  return a.wallTime() != b.wallTime() ||
-         a.timeZone().offset() != b.timeZone().offset();
+  return a.wallTime() != b.wallTime() || a.utcOffset() != b.utcOffset();
 }
 
-} // namespace roo_time
+}  // namespace roo_time
 
 #if defined(__linux__)
 
@@ -1054,10 +1106,10 @@ inline std::ostream& operator<<(std::ostream& os,
   os << std::setfill('0') << std::setw(2) << (int)dt.minute() << ":";
   os << std::setfill('0') << std::setw(2) << (int)dt.second() << ".";
   os << std::setfill('0') << std::setw(6) << (int64_t)dt.micros();
-  if (dt.timeZone().offset().inMicros() > 0) {
+  if (dt.utcOffset().inMicros() > 0) {
     os << "+";
   }
-  os << dt.timeZone().offset().inMinutes() << "min";
+  os << dt.utcOffset().inMinutes() << "min";
   return os;
 }
 
