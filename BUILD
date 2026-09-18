@@ -60,6 +60,8 @@ cc_test(
     name = "format_no_string_test",
     size = "small",
     srcs = ["test/format_no_string_test.cpp"],
+    # Keep ESP32 shim dependencies static to avoid unresolved heap_caps symbols.
+    linkstatic = 1,
     deps = [":format_portable"],
 )
 
@@ -184,6 +186,8 @@ cc_test(
     name = "compact_time_test",
     size = "small",
     srcs = ["test/compact_time_test.cpp"],
+    # Keep ESP32 shim dependencies static to avoid unresolved heap_caps symbols.
+    linkstatic = 1,
     deps = [":roo_time", "@googletest//:gtest_main"],
 )
 
