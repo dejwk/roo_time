@@ -58,7 +58,7 @@ TEST(IsoDateTime, AcceptedFormsAndBoundedViews) {
     std::string text =
         "2024-02-29T12:34:56." + std::string(digits, '1') + "-05:30";
     ASSERT_EQ(TextStatus::kOk, ParseIsoDateTime(text, &parsed).status);
-    EXPECT_EQ(-330, parsed.timeZone().offset().inMinutes());
+    EXPECT_EQ(-330, parsed.utcOffset().inMinutes());
     EXPECT_EQ("2024-02-29T12:34:56." + std::string(digits, '1') +
                   std::string(6 - digits, '0') + "-05:30",
               FormatIsoDateTime(parsed));
@@ -250,12 +250,12 @@ TEST(ParseDateTime, OffsetOverridesAndRepeatedFields) {
     ASSERT_EQ(TextStatus::kOk,
               ParseDateTime("2024-02-29Z", format, UtcOffset(Hours(3)), &output)
                   .status);
-    EXPECT_EQ(0, output.timeZone().offset().inMinutes());
+    EXPECT_EQ(0, output.utcOffset().inMinutes());
   }
   EXPECT_EQ(TextStatus::kOk,
             ParseDateTime("2024-02-29-00:30", "%F%:z", timezone::UTC, &output)
                 .status);
-  EXPECT_EQ(-30, output.timeZone().offset().inMinutes());
+  EXPECT_EQ(-30, output.utcOffset().inMinutes());
   EXPECT_EQ(TextStatus::kOk,
             ParseDateTime("2024-02-29/2024 .1/.100000 +0100/+01:00",
                           "%F/%Y .%f/.%f %z/%:z", timezone::UTC, &output)
@@ -332,7 +332,7 @@ TEST(FormatDateTime, OffsetsOutsideTextRange) {
     DateTime output;
     EXPECT_EQ(
         TextStatus::kOk,
-        ParseDateTime("2024-01-01", "%F", value.timeZone(), &output).status);
+        ParseDateTime("2024-01-01", "%F", value.utcOffset(), &output).status);
     EXPECT_EQ(value, output);
   }
 }

@@ -27,7 +27,11 @@ inline std::ostream& operator<<(std::ostream& os, const roo_time::Uptime& t) {
 
 /// Streams textual `WallTime` representation for tests.
 inline std::ostream& operator<<(std::ostream& os, const roo_time::WallTime& t) {
-  os << t.sinceEpoch() << " since Epoch";
+  if (t.isSet()) {
+    os << t.sinceEpoch() << " since Epoch";
+  } else {
+    os << "<unset>";
+  }
   return os;
 }
 
@@ -41,10 +45,10 @@ inline std::ostream& operator<<(std::ostream& os,
   os << std::setfill('0') << std::setw(2) << (int)dt.minute() << ":";
   os << std::setfill('0') << std::setw(2) << (int)dt.second() << ".";
   os << std::setfill('0') << std::setw(6) << (int64_t)dt.micros();
-  if (dt.timeZone().offset().inMicros() > 0) {
+  if (dt.utcOffset().inMicros() > 0) {
     os << "+";
   }
-  os << dt.timeZone().offset().inMinutes() << "min";
+  os << dt.utcOffset().inMinutes() << "min";
   return os;
 }
 

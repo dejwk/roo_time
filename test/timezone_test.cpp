@@ -13,7 +13,7 @@ WallTime Utc(int y, int m, int d, int h = 0, int min = 0) {
 
 void ExpectOffset(const TimeZone& zone, WallTime t, int minutes) {
   const UtcOffset offset = zone.resolveOffset(t);
-  EXPECT_EQ(minutes, offset.offset().inMinutes());
+  EXPECT_EQ(minutes, offset.asDuration().inMinutes());
 }
 
 void ExpectTransition(const TimeZone& zone, WallTime t, int before, int after) {
@@ -160,8 +160,8 @@ TEST(TimeZoneDeathTest, OutOfRangeInstantAsserts) {
 // Verifies invalid local dates assert before timestamp arithmetic can overflow.
 TEST(TimeZoneDeathTest, LocalCalendarRangeAsserts) {
   FixedTimeZone fixed(UtcOffset(Hours(1)));
-  EXPECT_DEATH(ToLocal(WallTime(Duration::Max()), fixed), "");
-  EXPECT_DEATH(ToLocal(WallTime(Micros(INT64_MIN)), fixed), "");
+  EXPECT_DEATH(ToLocal(WallTime::SinceEpoch(Duration::Max()), fixed), "");
+  EXPECT_DEATH(ToLocal(WallTime::SinceEpoch(Micros(INT64_MIN)), fixed), "");
   EXPECT_DEATH(ToLocal(Utc(9999, 12, 31, 23), fixed), "");
   EXPECT_DEATH(ToLocal(Utc(1, 1, 1) - Hours(1) - Micros(1), fixed), "");
 }
@@ -178,13 +178,14 @@ TEST(TimeZone, RangeBoundariesAndExtremeInstants) {
   ExpectOffset(south, Utc(9999, 12, 31) + Hours(24) - Micros(1), 780);
   ExpectOffset(zone, Utc(9999, 12, 31) + Hours(24) - Micros(1), 0);
   FixedTimeZone whole_range(UtcOffset(Minutes(INT16_MIN)));
-  ExpectOffset(whole_range, WallTime(Micros(INT64_MIN)), INT16_MIN);
-  ExpectOffset(whole_range, WallTime(Duration::Max()), INT16_MIN);
+  ExpectOffset(whole_range, WallTime::SinceEpoch(Micros(INT64_MIN + 1)),
+               INT16_MIN);
+  ExpectOffset(whole_range, WallTime::SinceEpoch(Duration::Max()), INT16_MIN);
   FixedTimeZone fixed(UtcOffset(Hours(1)));
   const DateTime local = ToLocal(Utc(1, 1, 1) - Hours(1), fixed);
   EXPECT_EQ(1, local.year());
   EXPECT_EQ(Utc(1, 1, 1) - Hours(1), local.wallTime());
-  EXPECT_EQ(Hours(1), local.timeZone().offset());
+  EXPECT_EQ(Hours(1), local.utcOffset().asDuration());
   const DateTime last = ToLocal(Utc(9999, 12, 31, 23) - Micros(1), fixed);
   EXPECT_EQ(9999, last.year());
   EXPECT_EQ(23, last.hour());
@@ -237,3 +238,11 @@ TEST(TimeZone, FormattingAcrossGapAndOverlap) {
 
 }  // namespace
 }  // namespace roo_time
+
+#ifndef NDEBUG
+// Verifies fixed resolvers reject the newly reserved unset wall-time value.
+TEST(TimeZoneDeathTest, FixedRejectsUnset) {
+  roo_time::FixedTimeZone zone(roo_time::timezone::UTC);
+  EXPECT_DEATH(zone.resolveOffset(roo_time::WallTime::Unset()), "isSet");
+}
+#endif

@@ -257,7 +257,10 @@ class Duration : public internal::DurationConversions<Duration> {
   constexpr Duration() : micros_(0) {}
 
   /// Returns the maximum representable duration.
-  static const Duration Max() { return Duration(0x7FFFFFFFFFFFFFFF); }
+  static constexpr Duration Max() { return Duration(INT64_MAX); }
+
+  /// Returns the minimum representable duration.
+  static constexpr Duration Min() { return Duration(INT64_MIN); }
 
   /// Returns duration in microseconds.
   [[nodiscard]] constexpr int64_t inMicros() const { return micros_; }

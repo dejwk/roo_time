@@ -397,7 +397,7 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
       value.minute(),
       value.second(),
       static_cast<int32_t>(value.micros()),
-      static_cast<int32_t>(value.timeZone().offset().inMinutes())};
+      static_cast<int32_t>(value.utcOffset().inMinutes())};
   return FormatFields(fields, format, format_length, buffer, capacity, false);
 }
 

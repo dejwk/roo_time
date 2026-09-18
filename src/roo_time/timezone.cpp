@@ -19,9 +19,9 @@ WallTime TransitionAt(const AnnualTransition& t, int year, UtcOffset base,
   WallTime instant =
       DateTime(year, t.date.month(), day, timezone::UTC).wallTime();
   instant += Minutes(t.minutes_since_midnight);
-  if (t.basis != TransitionTimeBasis::kUtc) instant -= base.offset();
+  if (t.basis != TransitionTimeBasis::kUtc) instant -= base.asDuration();
   if (t.basis == TransitionTimeBasis::kAdjustedLocal)
-    instant -= adjustment.offset();
+    instant -= adjustment.asDuration();
   return instant;
 }
 
@@ -75,9 +75,11 @@ RecurringTimeZone::RecurringTimeZone(UtcOffset base, SeasonalRules rules)
     : base_offset_(base), rules_(rules) {
   assert(ValidTransition(rules.first_transition));
   assert(ValidTransition(rules.second_transition));
-  assert(base.offset().inMinutes() + rules.adjustment.offset().inMinutes() >=
+  assert(base.asDuration().inMinutes() +
+             rules.adjustment.asDuration().inMinutes() >=
          INT16_MIN);
-  assert(base.offset().inMinutes() + rules.adjustment.offset().inMinutes() <=
+  assert(base.asDuration().inMinutes() +
+             rules.adjustment.asDuration().inMinutes() <=
          INT16_MAX);
 }
 
@@ -89,16 +91,16 @@ UtcOffset RecurringTimeZone::resolveOffset(WallTime instant) const {
   const WallTime second = TransitionAt(rules_.second_transition, year,
                                        base_offset_, rules_.adjustment);
   const bool adjusted = instant >= first && instant < second;
-  return adjusted
-             ? UtcOffset(base_offset_.offset() + rules_.adjustment.offset())
-             : base_offset_;
+  return adjusted ? UtcOffset(base_offset_.asDuration() +
+                              rules_.adjustment.asDuration())
+                  : base_offset_;
 }
 
 DateTime ToLocal(WallTime instant, const TimeZone& zone) {
   const UtcOffset offset = zone.resolveOffset(instant);
   // Shift bounds rather than an arbitrary input timestamp to avoid overflow.
-  assert(instant >= CalendarBegin() - offset.offset() &&
-         instant < CalendarEnd() - offset.offset());
+  assert(instant >= CalendarBegin() - offset.asDuration() &&
+         instant < CalendarEnd() - offset.asDuration());
   return DateTime(instant, offset);
 }
 

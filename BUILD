@@ -267,6 +267,7 @@ cc_test(
         name = name,
         size = "small",
         srcs = ["test/civil_day_format_test.cpp"],
+        linkstatic = True,
         deps = [backend, "@googletest//:gtest_main"],
     )
     for name, backend in [
@@ -274,3 +275,11 @@ cc_test(
         ("civil_day_format_portable_test", ":format_portable"),
     ]
 ]
+# Wrap the host clock so read errors can be tested deterministically.
+cc_test(
+    name = "system_clock_test",
+    size = "small",
+    srcs = ["test/system_clock_test.cpp"],
+    linkopts = ["-Wl,--wrap=gettimeofday"],
+    deps = [":core", "@googletest//:gtest_main"],
+)

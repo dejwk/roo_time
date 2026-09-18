@@ -142,8 +142,11 @@ The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, an
 
 Breaking change: `TimeZone` is now an abstract offset resolver, replacing the
 former alias for `UtcOffset`. Replace old fixed-offset `TimeZone` declarations
-with `UtcOffset`. `DateTime::timeZone()` still returns its resolved `UtcOffset`,
-and `timezone::UTC` is still the zero fixed offset.
+with `UtcOffset`. Prefer `DateTime::utcOffset()` over the deprecated `timeZone()`
+accessor, and `UtcOffset::asDuration()` over the deprecated `offset()` accessor.
+`timezone::UTC` remains the zero fixed offset. Offsets support direct equality
+and ordering comparisons, plus `inMinutes()`, `inSeconds()`, `inMillis()`, and
+`inMicros()`.
 
 Offsets are fixed; they do not automatically follow daylight-saving changes.
 For seasonal offsets, see [time zones](#time-zones-and-seasonal-rules).
@@ -299,7 +302,7 @@ class MyClock : public WallTimeClock {
 
   WallTime now() const override {
     // Read time, e.g. as milliseconds since Epoch.
-    return WallTime(Millis(rtc_.millisSinceEpoch()));
+    return WallTime::SinceEpoch(Millis(rtc_.millisSinceEpoch()));
   }
 
  private:
@@ -448,7 +451,9 @@ and timer configuration requirements apply.
   Supply whole minutes within the signed 16-bit minute range. Construction
   truncates sub-minute offsets toward zero and does not validate the range.
 - Wall time follows Unix/POSIX time without distinct leap seconds. `DateTime()`
-  and `WallTime()` represent the Unix epoch, not the current time. `DateTime`
+  and `WallTime()` continue to represent the Unix epoch. Use `WallTime::Unset()`
+  for an explicit unset value. Prefer `WallTime::Epoch()` or
+  `WallTime::SinceEpoch(duration)` over the deprecated constructors. `DateTime`
   equality compares both the instant and offset; compare `wallTime()` when only
   the instant matters.
 
@@ -479,11 +484,14 @@ deep sleep or schedule asynchronous callbacks.
 
 ### Wall-clock validity and synchronization
 
-`WallTimeClock::now()` returns a value without validity or synchronization status.
-The adapter/application must separately track whether an RTC has been initialized
-or a network clock synchronized. `SystemClock` reads the system wall clock; it
-does not initiate NTP synchronization. It returns the Unix epoch if
-`gettimeofday` fails, which is indistinguishable from a successful epoch reading.
+`WallTimeClock::now()` returns unset wall time on read errors. Check `isSet()`
+before arithmetic or conversion to `DateTime`; these operations require valid
+inputs and assert that precondition in debug builds. `INT64_MIN` microseconds is
+reserved for invalid time; arithmetic results must fit and remain valid.
+Validity does not imply synchronization: the adapter/application must separately
+track whether an RTC has been initialized or a network clock synchronized.
+`SystemClock` does not initiate NTP synchronization. It returns unset wall time
+if `gettimeofday` fails, distinguishable from a successful epoch reading.
 
 Wall time can jump forward or backward after synchronization or manual adjustment.
 Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not handle DST transitions. `TimeZone` resolves UTC instants
@@ -537,8 +545,8 @@ FormatResult result = FormatIsoDateTime(instant, local_zone, text, sizeof(text))
 // 2026-07-01T02:00:00.000000+02:00
 ```
 
-`FixedTimeZone` accepts INT64_MIN through INT64_MAX microseconds since the Unix
-epoch, inclusive. Every representable `UtcOffset` is valid for its constructor.
+`FixedTimeZone` accepts INT64_MIN + 1 through INT64_MAX microseconds since the
+Unix epoch, inclusive; the unset sentinel is excluded. Every representable `UtcOffset` is valid for its constructor.
 `RecurringTimeZone` accepts UTC instants from 0001-01-01T00:00:00.000000Z through
 9999-12-31T23:59:59.999999Z, inclusive. Out-of-range calls have undefined behavior
 and assert in debug builds. `ToLocal(instant, zone)` returns a `DateTime` directly.

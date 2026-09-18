@@ -26,9 +26,12 @@ class FixedTimeZone final : public TimeZone {
   /// (signed 16-bit minutes) is valid; no further validation is needed.
   explicit FixedTimeZone(UtcOffset offset) : offset_(offset) {}
 
-  /// Returns the configured offset for every representable WallTime, from
-  /// INT64_MIN through INT64_MAX microseconds since the Unix epoch, inclusive.
-  UtcOffset resolveOffset(WallTime) const override { return offset_; }
+  /// Returns the configured offset for every set WallTime, from
+  /// INT64_MIN + 1 through INT64_MAX microseconds since the epoch, inclusive.
+  UtcOffset resolveOffset(WallTime instant) const override {
+    assert(instant.isSet());
+    return offset_;
+  }
 
  private:
   UtcOffset offset_;
