@@ -33,16 +33,6 @@ class WallTime {
     return WallTime(since_epoch, InitTag{});
   }
 
-  /// Constructs wall time at the Unix epoch.
-  [[deprecated("Use WallTime::Epoch() instead")]]
-  constexpr WallTime()
-      : since_epoch_(Duration()) {}
-
-  /// Constructs wall time from offset since Unix epoch.
-  [[deprecated("Use WallTime::SinceEpoch() instead")]]
-  explicit constexpr WallTime(Duration since_epoch)
-      : since_epoch_(since_epoch) {}
-
   /// Returns true if this wall time is valid (not the unset value).
   [[nodiscard]] constexpr bool isSet() const {
     return since_epoch_ != Duration::Min();
@@ -171,12 +161,6 @@ class UtcOffset {
       : offset_minutes_(offset.inMinutes()) {}
 
   /// Returns this fixed offset as a duration.
-  [[nodiscard]] [[deprecated("Use asDuration() instead")]]
-  constexpr Duration offset() const {
-    return asDuration();
-  }
-
-  /// Returns this fixed offset as a duration.
   [[nodiscard]] constexpr Duration asDuration() const {
     return Minutes(offset_minutes_);
   }
@@ -273,12 +257,6 @@ class DateTime {
 
   /// Returns `WallTime` corresponding to this `DateTime`.
   [[nodiscard]] WallTime wallTime() const { return walltime_; }
-
-  /// Returns the fixed UTC offset of this `DateTime`.
-  [[nodiscard]] [[deprecated("Use utcOffset() instead")]] UtcOffset timeZone()
-      const {
-    return offset_;
-  }
 
   /// Returns the fixed UTC offset of this `DateTime`.
   [[nodiscard]] UtcOffset utcOffset() const { return offset_; }

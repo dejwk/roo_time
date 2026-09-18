@@ -363,23 +363,6 @@ TEST(UtcOffset, SubMinuteTruncation) {
   }
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-// Verifies the deprecated accessors still agree with the new API.
-TEST(UtcOffset, LegacyCompatibility) {
-  using namespace roo_time;
-  constexpr UtcOffset legacy(Minutes(-330));
-  static_assert(legacy.offset() == legacy.asDuration(), "legacy duration");
-  const DateTime date(2026, 9, 12, legacy);
-  EXPECT_EQ(legacy, date.timeZone());
-  EXPECT_EQ(date.utcOffset(), date.timeZone());
-  EXPECT_EQ(legacy.asDuration(), date.timeZone().offset());
-  EXPECT_EQ(date, DateTime(date.wallTime(), date.utcOffset()));
-  EXPECT_EQ(date, DateTime(2026, 9, 12, UtcOffset(Minutes(-330))));
-  EXPECT_NE(date, DateTime(date.wallTime(), timezone::UTC));
-}
-#pragma GCC diagnostic pop
-
 // Verifies duration endpoints and the reserved wall-time sentinel at compile
 // time.
 TEST(WallTime, InvalidSentinelAndLimits) {
@@ -453,30 +436,6 @@ TEST(WallTimeDeathTest, RejectsInvalidArithmeticAndCalendarConversion) {
       "isSet");
 }
 #endif
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-// Verifies deprecated constructors preserve the named factories' values.
-TEST(WallTime, LegacyConstruction) {
-  using namespace roo_time;
-  constexpr WallTime default_time;
-  constexpr WallTime epoch(Micros(0));
-  constexpr WallTime before_epoch(Micros(-123));
-  static_assert(default_time.isSet(), "legacy default is set");
-  static_assert(default_time.sinceEpoch().inMicros() == 0,
-                "legacy default remains the Unix epoch");
-  static_assert(epoch.isSet(), "legacy epoch is set");
-  static_assert(before_epoch.sinceEpoch().inMicros() == -123,
-                "legacy duration construction remains constexpr");
-  EXPECT_EQ(WallTime::Epoch(), default_time);
-  EXPECT_EQ(WallTime::SinceEpoch(Micros(0)), default_time);
-  EXPECT_EQ(Seconds(1), (default_time + Seconds(1)).sinceEpoch());
-  EXPECT_EQ(DateTime(), DateTime(default_time, timezone::UTC));
-  EXPECT_EQ(WallTime::Epoch(), epoch);
-  EXPECT_EQ(WallTime::SinceEpoch(Micros(-123)), before_epoch);
-  EXPECT_EQ(WallTime::Unset(), WallTime(Duration::Min()));
-}
-#pragma GCC diagnostic pop
 
 #ifdef __linux__
 // Verifies diagnostic output distinguishes unset time from the Unix epoch.
