@@ -13,7 +13,7 @@
         "type": "git",
         "url": "https://github.com/dejwk/roo_time"
     },
-    "version": "1.4.7",
+    "version": "1.5.0",
     "dependencies": {
         "dejwk/roo_backport": ">=1.2.3"
     },
