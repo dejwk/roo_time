@@ -1,75 +1,9 @@
 #include "roo_time/wall_time.h"
 
+#include "roo_time/internal/calendar.h"
+
 namespace roo_time {
 namespace {
-
-// Credit:
-// https://stackoverflow.com/questions/7960318/math-to-convert-seconds-since-1970-into-date-and-vice-versa
-
-// Returns number of days since civil 1970-01-01.  Negative values indicate
-//    days prior to 1970-01-01.
-// Preconditions:  y-m-d represents a date in the civil (Gregorian) calendar
-//                 m is in [1, 12]
-//                 d is in [1, last_day_of_month(y, m)]
-//                 y is "approximately" in
-//                   [numeric_limits<Int>::min()/366,
-//                   numeric_limits<Int>::max()/366]
-//                 Exact range of validity is:
-//                 [CivilFromDays(numeric_limits<Int>::min()),
-//                  CivilFromDays(numeric_limits<Int>::max()-719468)]
-int32_t DaysFromCivil(int32_t y, uint8_t m, uint8_t d) noexcept {
-  y -= m <= 2;
-  const int32_t era = (y >= 0 ? y : y - 399) / 400;
-  const uint32_t yoe = static_cast<uint16_t>(y - era * 400);  // [0, 399]
-  const uint32_t doy =
-      (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;          // [0, 365]
-  const uint32_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;  // [0, 146096]
-  return era * 146097 + static_cast<int32_t>(doe) - 719468;
-}
-
-// Returns year/month/day triple in civil calendar
-// Preconditions:  z is number of days since 1970-01-01 and is in the range:
-//                   [numeric_limits<Int>::min(),
-//                   numeric_limits<Int>::max()-719468].
-void CivilFromDays(int32_t z, int16_t* year, uint8_t* month,
-                   uint8_t* day) noexcept {
-  z += 719468;
-  const int32_t era = (z >= 0 ? z : z - 146096) / 146097;
-  const uint32_t doe = static_cast<uint32_t>(z - era * 146097);  // [0, 146096]
-  const uint32_t yoe =
-      (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;  // [0, 399]
-  const int32_t y = static_cast<int32_t>(yoe) + era * 400;
-  const uint16_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);  // [0, 365]
-  const uint8_t mp = (5 * doy + 2) / 153;                        // [0, 11]
-  const uint8_t d = doy - (153 * mp + 2) / 5 + 1;                // [1, 31]
-  const uint8_t m = mp + (mp < 10 ? 3 : -9);                     // [1, 12]
-  *year = y + (m <= 2);
-  *month = m;
-  *day = d;
-}
-
-// Returns day of week in civil calendar [0, 6] -> [Sun, Sat]
-// Preconditions:  z is number of days since 1970-01-01 and is in the range:
-//                   [numeric_limits<Int>::min(), numeric_limits<Int>::max()-4].
-constexpr DayOfWeek WeekdayFromDays(int32_t z) noexcept {
-  return static_cast<DayOfWeek>(z >= -4 ? (z + 4) % 7 : (z + 5) % 7 + 6);
-}
-
-// Returns: true if y is a leap year in the civil calendar, else false
-constexpr bool IsLeap(int32_t y) noexcept {
-  return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-}
-
-// Preconditions:  y-m-d represents a date in the civil (Gregorian) calendar
-//                 m is in [1, 12]
-//                 d is in [1, last_day_of_month(y, m)]
-uint16_t DayOfYear(int16_t y, uint8_t m, uint8_t d) {
-  constexpr uint16_t days_to_month[12] = {0,   31,  59,  90,  120, 151,
-                                          181, 212, 243, 273, 304, 334};
-  uint16_t result = days_to_month[m - 1] + d;
-  if (m > 2 && IsLeap(y)) result++;
-  return result;
-}
 
 // Credit:
 // https://stackoverflow.com/questions/1082917/mod-of-negative-number-is-melting-my-brain/1082938#1082938
@@ -95,10 +29,10 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
       minute_(minute),
       second_(second),
       micros_(micros) {
-  int64_t t = DaysFromCivil(year, month, day);
-  day_of_week_ = WeekdayFromDays(t);
+  int64_t t = internal::DaysFromCivil(year, month, day);
+  day_of_week_ = internal::WeekdayFromDays(t);
   t = ((((t * 24) + hour) * 60 + minute) * 60 + second) * 1000000 + micros;
-  day_of_year_ = DayOfYear(year, month, day);
+  day_of_year_ = internal::DayOfYear(year, month, day);
   walltime_ = WallTime(Micros(t) - tz.offset());
 }
 
@@ -109,9 +43,9 @@ DateTime::DateTime(WallTime wall_time, UtcOffset tz)
   const int64_t micros = sinceEpochTz.inMicros();
   int32_t unix_days = micros / kMicrosPerDay;
   if (micros % kMicrosPerDay < 0) --unix_days;
-  CivilFromDays(unix_days, &year_, &month_, &day_);
-  day_of_year_ = DayOfYear(year_, month_, day_);
-  day_of_week_ = WeekdayFromDays(unix_days);
+  internal::CivilFromDays(unix_days, &year_, &month_, &day_);
+  day_of_year_ = internal::DayOfYear(year_, month_, day_);
+  day_of_week_ = internal::WeekdayFromDays(unix_days);
   uint64_t since_midnight =
       FloorMod<int64_t>(sinceEpochTz.inMicros(), (uint64_t)1000000 * 3600 * 24);
   micros_ = since_midnight % 1000000L;

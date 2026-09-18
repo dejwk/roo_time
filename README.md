@@ -24,7 +24,8 @@ DelayUntil(deadline);
 // start + deadline;    // Compile error: cannot add two time points.
 ```
 
-The core types store signed 64-bit microseconds and their value operations use no
+Duration, uptime, and wall-time types store signed 64-bit microseconds.
+`CivilDay` stores a Gregorian date in four bytes. Their value operations use no
 heap allocation. The primary target is ESP32 with Arduino or ESP-IDF; Pico SDK and compatible
 RP2040 Arduino cores, native Linux, and host emulation are also supported. Generic Arduino
 requires regular clock sampling and serialized calls; see
@@ -36,6 +37,7 @@ requires regular clock sampling and serialized calls; see
 | `Uptime` | A point on the device/process uptime clock | Measuring elapsed time and setting deadlines |
 | `WallTime` | A timestamp relative to the Unix epoch | Reading an RTC or a synchronized system clock |
 | `SmallDuration` / `SmallTimestamp` | Compact millisecond durations / wrapping timestamps | Storing many short-lived timing values |
+| `CivilDay` | A date without time or timezone | Checked Gregorian dates and calendar-day arithmetic |
 | `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
 
 Use uptime for timing work and wall time for dates. `UtcOffset` supplies a fixed UTC
@@ -104,6 +106,20 @@ See the [ESP32 NTP example](examples/Esp32NtpTime/Esp32NtpTime.ino) for setup.
 RTC drivers can expose the same `WallTimeClock` interface. For a DS3231, the
 companion [roo_time_ds3231](https://github.com/dejwk/roo_time_ds3231) library supplies
 an adapter. Other devices can use a [small adapter of their own](#connecting-an-rtc).
+
+## Civil dates
+
+Use `CivilDay` for a date without an instant or timezone:
+
+```cpp
+CivilDay birthday = CivilDay::FromYmd(2000, 2, 29);
+CivilDay next_day = birthday.addDays(1);  // 2000-03-01
+```
+
+It supports years 1–9999, checked construction and arithmetic, and an invalid
+value. `DateTime::civilDay()` extracts its local date. `ParseCivilDay` and
+`FormatCivilDay` share the existing numeric text engine. See
+[civil-date contracts and examples](docs/civil_day.md).
 
 ## Calendar dates and UTC offsets
 
@@ -398,7 +414,9 @@ shared mutation requires synchronization. In particular, `Uptime`'s copy and
 assignment operations accepting `volatile` sources do not make a 64-bit access
 atomic on a smaller MCU or establish synchronization between threads.
 
-For standalone Pico SDK builds, compile `src/roo_time.cpp`, `src/roo_time/timezone.cpp`, and
+For standalone Pico SDK builds, compile `src/roo_time/duration.cpp`,
+`src/roo_time/civil_day.cpp`, `src/roo_time/internal/calendar.cpp`,
+`src/roo_time/wall_time.cpp`, `src/roo_time/timezone.cpp`, and
 `src/uptime_now.cpp`, add `src` to the include path, and link `pico_time`.
 The SDK supplies `PICO_ON_DEVICE`; compatible RP2040 Arduino cores are detected
 through `ARDUINO_ARCH_RP2040` and availability of `pico/time.h`. Pico waits use
@@ -489,8 +507,9 @@ Examples for milliseconds:
 ### Time zones and seasonal rules
 
 Include `roo_time/timezone.h` for the timezone API. Core value types, including
-`UtcOffset` and `DateTime`, remain in `roo_time.h`. `roo_time/format.h` includes
-the timezone header for its timezone-aware overloads.
+`UtcOffset` and `DateTime`, are declared in `roo_time/wall_time.h` and remain
+available through `roo_time.h`. `roo_time/format.h` includes the timezone header
+for its timezone-aware overloads.
 
 `TimeZone::resolveOffset(WallTime) const` returns the **total** local-minus-UTC
 offset as a `UtcOffset`. The instant must be within the implementation's

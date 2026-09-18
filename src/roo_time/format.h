@@ -61,6 +61,53 @@ struct ParseResult {
   size_t position;
 };
 
+/// Formats a civil date without allocation. Supports %Y, %m, %d, %F, %% and
+/// literal separators; time/offset directives are invalid formats. An invalid
+/// date returns kInvalidInput and clears writable output. Buffer sizing,
+/// termination, and non-overlap requirements match FormatDateTime below.
+FormatResult FormatCivilDay(CivilDay value, const char* format,
+                            size_t format_length, char* buffer,
+                            size_t capacity);
+
+/// Strictly parses the entire date without allocation or normalization.
+/// Supports %Y (four digits), %m/%d (two digits), %F, %% and literals; requires
+/// year, month, and day in years 1–9999. Duplicate fields must agree.
+/// Time/offset directives are invalid formats. Failure leaves result unchanged.
+/// Ranges need not be NUL-terminated; null pointers are valid only for empty
+/// ranges.
+ParseResult ParseCivilDay(const char* text, size_t length, const char* format,
+                          size_t format_length, CivilDay* result);
+
+/// Formats a civil date with a NUL-terminated format string.
+inline FormatResult FormatCivilDay(CivilDay value, const char* format,
+                                   char* buffer, size_t capacity) {
+  return FormatCivilDay(value, format,
+                        format != nullptr ? std::strlen(format) : 1, buffer,
+                        capacity);
+}
+
+/// Parses a civil date with a NUL-terminated format string.
+inline ParseResult ParseCivilDay(const char* text, size_t length,
+                                 const char* format, CivilDay* result) {
+  return ParseCivilDay(text, length, format,
+                       format != nullptr ? std::strlen(format) : 1, result);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a civil date using a bounded format view.
+inline FormatResult FormatCivilDay(CivilDay value, roo::string_view format,
+                                   char* buffer, size_t capacity) {
+  return FormatCivilDay(value, format.data(), format.size(), buffer, capacity);
+}
+
+/// Parses bounded civil-date text and format views.
+inline ParseResult ParseCivilDay(roo::string_view text, roo::string_view format,
+                                 CivilDay* result) {
+  return ParseCivilDay(text.data(), text.size(), format.data(), format.size(),
+                       result);
+}
+#endif
+
 /// Formats a valid DateTime without allocation. Supported directives are %Y,
 /// %m, %d, %H, %M, %S, %f, %z, %:z, %F, %T, and %%; other bytes are literals.
 /// Offset directives require an offset from -23:59 through +23:59. Ranges need

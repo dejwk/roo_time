@@ -82,6 +82,10 @@ cc_test(
 cc_library(
     name = "core",
     srcs = [
+        "src/roo_time/civil_day.cpp",
+        "src/roo_time/civil_day.h",
+        "src/roo_time/internal/calendar.cpp",
+        "src/roo_time/internal/calendar.h",
         "src/roo_time/duration.cpp",
         "src/roo_time/wall_time.cpp",
         "src/roo_time/timezone.cpp",
@@ -250,3 +254,23 @@ cc_test(
     srcs = ["test/timezone_test.cpp"],
     deps = [":format", "@googletest//:gtest_main"],
 )
+
+cc_test(
+    name = "civil_day_test",
+    size = "small",
+    srcs = ["test/civil_day_test.cpp"],
+    deps = [":core", "@googletest//:gtest_main"],
+)
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/civil_day_format_test.cpp"],
+        deps = [backend, "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("civil_day_format_test", ":format"),
+        ("civil_day_format_portable_test", ":format_portable"),
+    ]
+]

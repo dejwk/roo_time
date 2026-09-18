@@ -78,12 +78,15 @@ class Tokens {
   bool valid_ = true;
 };
 
-bool ValidFormat(const char* format, size_t length, bool& has_offset) {
+bool ValidFormat(const char* format, size_t length, bool& has_offset,
+                 bool date_only = false) {
   if (format == nullptr && length != 0) return false;
   Tokens tokens(format, length);
   char code, literal;
   has_offset = false;
   while (tokens.nextToken(code, literal)) {
+    if (date_only && code != '\0' && code != 'Y' && code != 'm' && code != 'd')
+      return false;
     if (code == 'z' || code == ':') has_offset = true;
   }
   return tokens.isValid();
@@ -129,17 +132,29 @@ class Writer {
   size_t size_ = 0;
 };
 
+enum Field {
+  kYear,
+  kMonth,
+  kDay,
+  kHour,
+  kMinute,
+  kSecond,
+  kMicros,
+  kOffset,
+  kCount
+};
+
 // Formats a fixed-width calendar field, using strftime only when it agrees.
-void CalendarNumber(Writer& writer, const DateTime& value, char code,
+void CalendarNumber(Writer& writer, const int32_t* value, char code,
                     unsigned number) {
 #if ROO_TIME_HAS_STRFTIME
   std::tm calendar = {};
-  calendar.tm_year = value.year() - 1900;
-  calendar.tm_mon = value.month() - 1;
-  calendar.tm_mday = value.day();
-  calendar.tm_hour = value.hour();
-  calendar.tm_min = value.minute();
-  calendar.tm_sec = value.second();
+  calendar.tm_year = value[kYear] - 1900;
+  calendar.tm_mon = value[kMonth] - 1;
+  calendar.tm_mday = value[kDay];
+  calendar.tm_hour = value[kHour];
+  calendar.tm_min = value[kMinute];
+  calendar.tm_sec = value[kSecond];
   calendar.tm_isdst = -1;
   const char format[] = {'%', code, '\0'};
   char text[3];
@@ -159,18 +174,6 @@ void CalendarNumber(Writer& writer, const DateTime& value, char code,
 #endif
   writer.putNumber(number, 2);
 }
-
-enum Field {
-  kYear,
-  kMonth,
-  kDay,
-  kHour,
-  kMinute,
-  kSecond,
-  kMicros,
-  kOffset,
-  kCount
-};
 
 // Tracks strict format parsing and prevents inconsistent duplicate fields.
 class Parser {
@@ -267,11 +270,8 @@ class Parser {
     if (pos != length_ || !seen[kYear] || !seen[kMonth] || !seen[kDay]) {
       return failWith(TextStatus::kInvalidInput);
     }
-    static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    const int year = fields[kYear], month = fields[kMonth];
-    int max_day = days[month - 1];
-    if (month == 2 && year % 4 == 0 && (year % 100 != 0 || year % 400 == 0))
-      ++max_day;
+    const int max_day =
+        DaysInMonth(fields[kYear], static_cast<Month>(fields[kMonth]));
     if (fields[kDay] > max_day)
       return failWith(TextStatus::kOutOfRange, positions[kDay]);
     return true;
@@ -308,17 +308,16 @@ class Parser {
   size_t positions[kCount] = {};
 };
 
-}  // namespace
-
-FormatResult FormatDateTime(const DateTime& value, const char* format,
-                            size_t format_length, char* buffer,
-                            size_t capacity) {
+// Formats shared numeric fields for either a civil date or a date-time.
+FormatResult FormatFields(const int32_t* value, const char* format,
+                          size_t format_length, char* buffer, size_t capacity,
+                          bool date_only) {
   if (capacity != 0 && buffer == nullptr) return {TextStatus::kInvalidInput, 0};
   if (capacity != 0) buffer[0] = '\0';
   bool has_offset;
-  if (!ValidFormat(format, format_length, has_offset))
+  if (!ValidFormat(format, format_length, has_offset, date_only))
     return {TextStatus::kInvalidFormat, 0};
-  int offset = static_cast<int>(value.timeZone().offset().inMinutes());
+  const int offset = value[kOffset];
   if (has_offset && (offset < -1439 || offset > 1439))
     return {TextStatus::kOutOfRange, 0};
 
@@ -331,25 +330,25 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
         writer.putChar(literal);
         break;
       case 'Y':
-        writer.putNumber(value.year(), 4);
+        writer.putNumber(value[kYear], 4);
         break;
       case 'm':
-        CalendarNumber(writer, value, code, value.month());
+        CalendarNumber(writer, value, code, value[kMonth]);
         break;
       case 'd':
-        CalendarNumber(writer, value, code, value.day());
+        CalendarNumber(writer, value, code, value[kDay]);
         break;
       case 'H':
-        CalendarNumber(writer, value, code, value.hour());
+        CalendarNumber(writer, value, code, value[kHour]);
         break;
       case 'M':
-        CalendarNumber(writer, value, code, value.minute());
+        CalendarNumber(writer, value, code, value[kMinute]);
         break;
       case 'S':
-        CalendarNumber(writer, value, code, value.second());
+        CalendarNumber(writer, value, code, value[kSecond]);
         break;
       case 'f':
-        writer.putNumber(value.micros(), 6);
+        writer.putNumber(value[kMicros], 6);
         break;
       default: {
         writer.putChar(offset < 0 ? '-' : '+');
@@ -364,15 +363,15 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
   return writer.finishResult();
 }
 
-ParseResult ParseDateTime(const char* text, size_t length, const char* format,
-                          size_t format_length, UtcOffset default_offset,
-                          DateTime* result) {
+// Parses into shared fields after validating the format and destination.
+ParseResult ParseFields(const char* text, size_t length, const char* format,
+                        size_t format_length, bool date_only,
+                        const void* result, Parser& parser) {
   bool has_offset;
-  if (!ValidFormat(format, format_length, has_offset))
+  if (!ValidFormat(format, format_length, has_offset, date_only))
     return {TextStatus::kInvalidFormat, 0};
   if ((text == nullptr && length != 0) || result == nullptr)
     return {TextStatus::kInvalidInput, 0};
-  Parser parser(text, length);
   Tokens tokens(format, format_length);
   char code, literal;
   while (tokens.nextToken(code, literal)) {
@@ -382,12 +381,62 @@ ParseResult ParseDateTime(const char* text, size_t length, const char* format,
     }
   }
   if (!parser.isComplete()) return {parser.status, parser.pos};
+  return {TextStatus::kOk, parser.pos};
+}
+
+}  // namespace
+
+FormatResult FormatDateTime(const DateTime& value, const char* format,
+                            size_t format_length, char* buffer,
+                            size_t capacity) {
+  const int32_t fields[kCount] = {
+      value.year(),
+      value.month(),
+      value.day(),
+      value.hour(),
+      value.minute(),
+      value.second(),
+      static_cast<int32_t>(value.micros()),
+      static_cast<int32_t>(value.timeZone().offset().inMinutes())};
+  return FormatFields(fields, format, format_length, buffer, capacity, false);
+}
+
+FormatResult FormatCivilDay(CivilDay value, const char* format,
+                            size_t format_length, char* buffer,
+                            size_t capacity) {
+  if (!value.isValid()) {
+    if (capacity != 0 && buffer != nullptr) buffer[0] = '\0';
+    return {TextStatus::kInvalidInput, 0};
+  }
+  const int32_t fields[kCount] = {value.year(), value.month(), value.day()};
+  return FormatFields(fields, format, format_length, buffer, capacity, true);
+}
+
+ParseResult ParseDateTime(const char* text, size_t length, const char* format,
+                          size_t format_length, UtcOffset default_offset,
+                          DateTime* result) {
+  Parser parser(text, length);
+  const ParseResult parsed =
+      ParseFields(text, length, format, format_length, false, result, parser);
+  if (parsed.status != TextStatus::kOk) return parsed;
   const int32_t* f = parser.fields;
   *result = DateTime(
       f[kYear], f[kMonth], f[kDay], f[kHour], f[kMinute], f[kSecond],
       f[kMicros],
       parser.seen[kOffset] ? UtcOffset(Minutes(f[kOffset])) : default_offset);
-  return {TextStatus::kOk, parser.pos};
+  return parsed;
+}
+
+ParseResult ParseCivilDay(const char* text, size_t length, const char* format,
+                          size_t format_length, CivilDay* result) {
+  Parser parser(text, length);
+  const ParseResult parsed =
+      ParseFields(text, length, format, format_length, true, result, parser);
+  if (parsed.status == TextStatus::kOk) {
+    *result = CivilDay::FromYmd(parser.fields[kYear], parser.fields[kMonth],
+                                parser.fields[kDay]);
+  }
+  return parsed;
 }
 
 ParseResult ParseIsoDateTime(const char* text, size_t length,

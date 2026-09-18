@@ -76,5 +76,14 @@ int main() {
   if (zoned.status != TextStatus::kOk ||
       std::strcmp(iso, "2024-02-29T01:00:00.000000+01:00") != 0)
     return 5;
+  CivilDay date;
+  if (ParseCivilDay(input, sizeof(input), format, sizeof(format), &date)
+              .status != TextStatus::kOk ||
+      date != output.civilDay())
+    return 7;
+  if (FormatCivilDay(date, format, sizeof(format), buffer, sizeof(buffer))
+              .status != TextStatus::kOk ||
+      std::strcmp(buffer, "2024-02-29") != 0)
+    return 8;
   return CheckFractions() ? 0 : 6;
 }

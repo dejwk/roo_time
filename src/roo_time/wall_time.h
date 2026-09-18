@@ -1,5 +1,6 @@
 #pragma once
 
+#include "roo_time/civil_day.h"
 #include "roo_time/duration.h"
 
 #if defined(ESP_PLATFORM) || defined(__linux__)
@@ -147,31 +148,6 @@ namespace timezone {
 constexpr UtcOffset UTC = UtcOffset(Micros(0));
 }
 
-enum DayOfWeek {
-  kSunday = 0,
-  kMonday = 1,
-  kTuesday = 2,
-  kWednesday = 3,
-  kThursday = 4,
-  kFriday = 5,
-  kSaturday = 6
-};
-
-enum Month {
-  kJanuary = 1,
-  kFebruary = 2,
-  kMarch = 3,
-  kApril = 4,
-  kMay = 5,
-  kJune = 6,
-  kJuly = 7,
-  kAugust = 8,
-  kSeptember = 9,
-  kOctober = 10,
-  kNovember = 11,
-  kDecember = 12
-};
-
 /// Represents wall time decomposed into date/time in a specific time zone.
 ///
 /// Supports valid Gregorian dates in years 1-9999; inputs are not validated or
@@ -219,6 +195,11 @@ class DateTime {
 
   /// Returns day of month in valid range.
   [[nodiscard]] uint8_t day() const { return day_; }
+
+  /// Returns the local civil date, discarding time of day and UTC offset.
+  [[nodiscard]] CivilDay civilDay() const {
+    return CivilDay::FromYmd(year_, month_, day_);
+  }
 
   /// Returns hour in [0, 23].
   [[nodiscard]] uint8_t hour() const { return hour_; }

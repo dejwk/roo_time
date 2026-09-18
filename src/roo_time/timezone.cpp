@@ -3,17 +3,6 @@
 namespace roo_time {
 namespace {
 
-// Returns whether the Gregorian year is a leap year.
-bool IsLeap(int year) {
-  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-}
-
-// Returns the length of a valid month in the Gregorian year.
-int MonthDays(int month, int year) {
-  const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  return days[month - 1] + (month == 2 && IsLeap(year));
-}
-
 // Checks selector, minute, and clock-basis ranges without resolving a year.
 inline bool ValidTransition(const AnnualTransition& t) {
   return t.date.isValid() && t.minutes_since_midnight <= 1440 &&
@@ -47,7 +36,7 @@ WallTime CalendarEnd() {
 bool AnnualDateRule::isValid() const {
   if (month_ < kJanuary || month_ > kDecember) return false;
   if (weekday_ < kSunday || weekday_ > kSaturday) return false;
-  const int minimum_days = MonthDays(month_, 2001);
+  const int minimum_days = DaysInMonth(2001, month_);
   switch (kind_) {
     case Kind::kDay:
       return value_ >= 1 && value_ <= minimum_days;
@@ -67,11 +56,10 @@ bool AnnualDateRule::resolveDay(uint16_t year, uint8_t& result) const {
   if (kind_ == Kind::kDay) {
     day = value_;
   } else {
-    const int anchor = kind_ == Kind::kLast        ? MonthDays(month_, year)
+    const int anchor = kind_ == Kind::kLast        ? DaysInMonth(year, month_)
                        : kind_ == Kind::kOnOrAfter ? value_
                                                    : 1;
-    const int weekday =
-        DateTime(year, month_, anchor, timezone::UTC).dayOfWeek();
+    const int weekday = CivilDay::FromYmd(year, month_, anchor).dayOfWeek();
     if (kind_ == Kind::kLast) {
       day = anchor - (weekday - weekday_ + 7) % 7;
     } else {
