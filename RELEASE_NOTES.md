@@ -1,3 +1,16 @@
+# roo_time 2.0.0
+
+- Added timezone resolution with fixed and recurring DST rules, timezone-aware formatting, and an optional `AceTimeZone` adapter.
+- Added `CivilDay` for validated Gregorian dates, calendar-day arithmetic, parsing, and formatting.
+- Added duration floor and ceiling conversions for milliseconds, seconds, minutes, and hours.
+- Fixed microsecond parsing and formatting on platforms with 16-bit integers.
+- **Breaking:** `TimeZone` now represents an abstract timezone resolver; use `UtcOffset` for fixed offsets. Removed deprecated `offset()` and `timeZone()` accessors; use `asDuration()` and `utcOffset()`.
+- **Breaking:** Removed deprecated `WallTime` constructors; use `WallTime::Epoch()`, `SinceEpoch()`, or `Unset()`.
+- Split core APIs into focused headers, retaining `roo_time.h` as a compatibility facade. Custom builds must update source lists for the new implementation files.
+- Updated Bazel and CI dependencies.
+
+---
+
 # [roo_time 1.5.0](https://github.com/dejwk/roo_time/releases/tag/1.5.0)
 
 Published 2026-09-18.
