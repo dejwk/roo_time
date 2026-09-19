@@ -19,18 +19,16 @@ namespace roo_time {
 class WallTime {
  public:
   /// Constructs an 'unset' wall time.
-  static constexpr WallTime Unset() {
-    return WallTime(Duration::Min(), InitTag{});
-  }
+  static constexpr WallTime Unset() { return WallTime(Duration::Min()); }
 
   /// Constructs the WallTime corresponding to the Unix Epoch (1970-01-01 00:00
   /// UTC).
-  static constexpr WallTime Epoch() { return WallTime(Duration(), InitTag{}); }
+  static constexpr WallTime Epoch() { return WallTime(Duration()); }
 
   /// Constructs the WallTime corresponding to the specified duration since Unix
   /// Epoch (1970-01-01 00:00 UTC).
   static constexpr WallTime SinceEpoch(Duration since_epoch) {
-    return WallTime(since_epoch, InitTag{});
+    return WallTime(since_epoch);
   }
 
   /// Returns true if this wall time is valid (not the unset value).
@@ -60,8 +58,7 @@ class WallTime {
   friend WallTime operator-(const WallTime&, const Duration&);
   friend WallTime operator+(const Duration&, const WallTime&);
 
-  struct InitTag {};
-  constexpr WallTime(Duration since_epoch, InitTag)
+  explicit constexpr WallTime(Duration since_epoch)
       : since_epoch_(since_epoch) {}
 
   Duration since_epoch_;
