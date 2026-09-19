@@ -10,7 +10,6 @@
 - Updated Bazel and CI dependencies.
 
 ---
-
 # [roo_time 1.5.0](https://github.com/dejwk/roo_time/releases/tag/1.5.0)
 
 Published 2026-09-18.
