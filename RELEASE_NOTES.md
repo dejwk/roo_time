@@ -1,3 +1,11 @@
+# roo_time 2.0.1
+
+- Upgrade the Bazel `roo_testing` dependency from 2.1.2 to 2.3.0.
+- Automatically select the ESP-IDF ESP32 configuration when running ESP-IDF example targets without an explicit frontend configuration.
+- Refresh contributor guidance and standardize pointer and reference formatting.
+
+---
+
 # roo_time 2.0.0
 
 - Added timezone resolution with fixed and recurring DST rules, timezone-aware formatting, and an optional `AceTimeZone` adapter.
