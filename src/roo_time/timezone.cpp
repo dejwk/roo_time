@@ -25,11 +25,13 @@ WallTime TransitionAt(const AnnualTransition& t, int year, UtcOffset base,
   return instant;
 }
 
+#ifndef NDEBUG
 WallTime CalendarBegin() { return DateTime(1, 1, 1, timezone::UTC).wallTime(); }
 
 WallTime CalendarEnd() {
   return DateTime(9999, 12, 31, timezone::UTC).wallTime() + Hours(24);
 }
+#endif
 
 }  // namespace
 
