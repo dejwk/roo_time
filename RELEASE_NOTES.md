@@ -1,3 +1,10 @@
+# roo_time 2.0.2
+
+- Compile timezone calendar-bound helpers only in debug builds, avoiding unused-function warnings when assertions are disabled.
+- Upgrade the Bazel `roo_testing` dependency from 2.3.0 to 2.4.0.
+
+---
+
 # roo_time 2.0.1
 
 - Upgrade the Bazel `roo_testing` dependency from 2.1.2 to 2.3.0.
