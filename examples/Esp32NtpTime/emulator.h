@@ -1,6 +1,9 @@
 #pragma once
 
-// Host fixture only. The production sketch keeps its SNTP setup visible.
+// Emulator setup for Esp32NtpTime. The sketch includes this header only during
+// host runs, keeping fake hardware details separate from the time APIs it
+// teaches. It supplies Wi-Fi credentials and the StartClock() hook used by the
+// sketch; the on-board versions remain visible in Esp32NtpTime.ino.
 #include <Arduino.h>
 
 #include <memory>
@@ -23,6 +26,8 @@ struct Emulator {
     ap->setAuthMode(roo_testing_transducers::wifi::AUTH_WEP);
     ap->setPasswd("pwd");
     wifi.addAccessPoint(std::move(ap));
+    // The global fixture is constructed before setup(), so WiFi.begin() in
+    // the sketch can find this access point through the regular Arduino API.
     FakeEsp32().setWifiEnvironment(wifi);
   }
 } emulator;
@@ -32,7 +37,9 @@ const char* const kWifiPassword = "pwd";
 const char* const kClockReadyMessage =
     "Host clock ready (simulated sync; no NTP exchange).";
 
-// The host shim reads the host clock and never exchanges NTP packets.
+// The host shim supplies host time without an NTP exchange. Simulate
+// its missing completion notification so the sketch exercises its readiness
+// wait and displays the host clock. This does not test a real SNTP server.
 inline void StartClock() {
   configTime(0, 0, "pool.ntp.org");
   OnTimeSync(nullptr);

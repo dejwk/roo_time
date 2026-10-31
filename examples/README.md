@@ -2,8 +2,10 @@
 
 Start with elapsed timing. Add a wall clock when your application needs actual
 dates, and keep local schedule settings separate from resolved instants.
-Every sketch uses Serial at **115200 baud**. Follow each example's README for
-requirements, commands, expected output, and emulator limitations.
+Every sketch starts with its teaching goal, then explains the steps beside the
+code. Serial uses **115200 baud** on a board; emulator Serial output appears
+in the terminal. Follow each example's README for requirements, commands,
+expected output, and emulator limitations.
 
 | Example | What it demonstrates | Hardware |
 | --- | --- | --- |
@@ -18,19 +20,34 @@ requirements, commands, expected output, and emulator limitations.
 All seven compile and run under roo_testing's Arduino ESP32 host profile.
 The tests include each actual sketch and call a bounded number of setup/loop
 iterations; they terminate automatically. Test sources live under `test/`,
-which Arduino IDE does not compile as part of a sketch. Examples with scripted inputs run
-the same trace on a board. The NTP host shim uses host time, without exchanging
-NTP packets. Host validation does not replace testing Wi-Fi/SNTP on an ESP32.
+which Arduino IDE does not compile as part of a sketch. Examples with scripted
+inputs run the same trace on a board. The NTP host shim uses host time, without
+exchanging NTP packets. Host validation does not replace testing Wi-Fi/SNTP on an ESP32.
 
 From the repository root:
 
 ```sh
 bazel build //examples/... --config=roo_testing_arduino_esp32
 bazel test //examples/... --config=roo_testing_arduino_esp32
-bazel run //examples/ElapsedTime:ElapsedTime --config=roo_testing_arduino_esp32
 ```
 
-The runnable command continues until interrupted. Add `--config=asan` to build
+Run any one of the following commands to see the corresponding sketch's Serial
+output in the terminal. No board or physical inputs are needed in the emulator;
+its NTP example also supplies its own fake Wi-Fi credentials.
+
+```sh
+bazel run //examples/ElapsedTime:ElapsedTime --config=roo_testing_arduino_esp32
+bazel run //examples/PeriodicSampler:PeriodicSampler --config=roo_testing_arduino_esp32
+bazel run //examples/CompactDebounce:CompactDebounce --config=roo_testing_arduino_esp32
+bazel run //examples/Esp32NtpTime:Esp32NtpTime --config=roo_testing_arduino_esp32
+bazel run //examples/TimestampedMeasurements:TimestampedMeasurements --config=roo_testing_arduino_esp32
+bazel run //examples/ScheduleSettings:ScheduleSettings --config=roo_testing_arduino_esp32
+bazel run //examples/DailyLocalSchedule:DailyLocalSchedule --config=roo_testing_arduino_esp32
+```
+
+Use **Ctrl+C** to stop a sketch. Debounce, measurements, settings, and calendar
+planning print their scripted demonstration once in `setup()`, then idle; the
+other sketches keep producing readings. Add `--config=asan` to build
 or test with AddressSanitizer. Arduino sketches are excluded from the ESP-IDF
 profile; the library tests run in both profiles. See the
 [platform guide](../docs/platforms.md) for setup and clock requirements.
