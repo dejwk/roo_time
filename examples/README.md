@@ -21,8 +21,8 @@ All seven compile and run under roo_testing's Arduino ESP32 host profile.
 The tests include each actual sketch and call a bounded number of setup/loop
 iterations; they terminate automatically. Test sources live under `test/`,
 which Arduino IDE does not compile as part of a sketch. Examples with scripted
-inputs run the same trace on a board. The NTP host shim uses host time, without
-exchanging NTP packets. Host validation does not replace testing Wi-Fi/SNTP on an ESP32.
+inputs run the same trace on a board. The NTP virtual server supplies host UTC through the ordinary SNTP callback
+path, without exchanging NTP packets. Host validation does not replace testing Wi-Fi/SNTP on an ESP32.
 
 From the repository root:
 

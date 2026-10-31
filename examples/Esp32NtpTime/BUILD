@@ -20,6 +20,8 @@ cc_test(
     deps = [
         ":Esp32NtpTime__ino_context",
         "@roo_testing//:arduino_gtest_main",
+        "@roo_testing//roo_testing/frameworks/esp32_shims:idf",
+        "@roo_testing//roo_testing/system:wall_clock",
     ],
 )
 

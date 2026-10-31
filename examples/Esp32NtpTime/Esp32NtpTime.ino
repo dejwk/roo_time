@@ -7,9 +7,10 @@
 // happened.
 //
 // On a board, fill in the credentials below and open Serial at 115200 baud.
-// In the emulator, emulator.h supplies a fake access point and a simulated
-// readiness notification. Its clock comes from the host; no NTP packets are
-// exchanged. The remaining connection, timeout, and display flow is shared.
+// In the emulator, emulator.h supplies only a fake access point/credentials.
+// The device clock starts near the Unix epoch. roo_testing's virtual SNTP
+// server delivers host UTC through the same APIs and callback used on a board;
+// there is no real NTP packet exchange.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -42,7 +43,7 @@ void OnTimeSync(struct timeval*) { time_ready = true; }
 #else
 const char* const kWifiSsid = "<enter your SSID>";
 const char* const kWifiPassword = "<enter your password>";
-const char* const kClockReadyMessage = "SNTP synchronization confirmed.";
+#endif
 
 // Register first so a fast initial synchronization cannot be missed.
 void StartClock() {
@@ -52,7 +53,6 @@ void StartClock() {
   // displaying values, rather than configuring a fixed display offset here.
   configTime(0, 0, "pool.ntp.org");
 }
-#endif
 
 // A readable clock may still hold the epoch or a stale retained value.
 bool WaitForSync(Duration timeout) {
@@ -93,7 +93,7 @@ void setup() {
     Serial.println("SNTP timed out; waiting for a later sync notification.");
     return;
   }
-  Serial.println(kClockReadyMessage);
+  Serial.println("SNTP synchronization confirmed.");
 }
 
 void loop() {

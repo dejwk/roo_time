@@ -20,11 +20,20 @@ a 20-second timeout. An SNTP notification confirms the first sync; it does not
 guarantee accuracy or future freshness. The sketch keeps showing time if Wi-Fi
 later disconnects. Restart after a Wi-Fi connection timeout.
 
-On the host, the in-process access point supplies connectivity and the clock
-shim reads host time. The host fixture in `emulator.h` supplies the simulated readiness notification.
-Output explicitly says `Host clock ready (simulated sync; no NTP exchange)`,
-followed by `UTC:` and `Local:` ISO timestamps. This validates the sketch flow,
-not a network NTP exchange. Hardware prints `SNTP synchronization confirmed.`
+On the host, the in-process access point supplies Wi-Fi connectivity. The device
+clock begins near the Unix epoch; roo_testing's virtual SNTP server supplies
+host UTC after a response delay and calls the registered callback. The sketch
+prints `SNTP synchronization confirmed.`, then `UTC:` and `Local:` timestamps.
+Only Wi-Fi setup/credentials are emulator-specific; there is no manually invoked
+readiness callback in the fixture and no NTP packet exchange.
+
+During coordinated development, use the local roo_testing checkout containing
+SNTP emulation (the published dependency is updated after its release):
+
+```sh
+bazel test //examples/Esp32NtpTime:sketch_test --config=roo_testing_arduino_esp32 \
+  --override_module=roo_testing=/path/to/roo_testing
+```
 
 The recurring pattern uses UTC+1 in winter and UTC+2 in summer. It is a
 proleptic rule, not an IANA zone with historical or future government changes.
