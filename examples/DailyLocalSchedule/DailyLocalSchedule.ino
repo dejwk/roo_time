@@ -40,12 +40,9 @@ void PrintPlan(CivilDay first_day) {
     } else if (!occurrence.isSet()) {
       Serial.printf("%s: skipped (clock jumps over 02:30)\n", day);
     } else {
-      char utc[40];
-      if (FormatIsoDateTime(DateTime(occurrence, timezone::UTC), utc,
-                            sizeof(utc))
-              .status == TextStatus::kOk) {
-        Serial.printf("%s 02:30 local -> %s\n", day, utc);
-      }
+      Serial.printf("%s 02:30 local -> ", day);
+      Serial.println(
+          FormatIsoDateTimeArduino(DateTime(occurrence, timezone::UTC)));
     }
   }
 }

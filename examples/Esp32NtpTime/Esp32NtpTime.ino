@@ -10,15 +10,13 @@
 
 using namespace roo_time;
 
-std::atomic<bool> synchronized(false);
+// The SNTP callback runs on another task, so this shared flag is atomic.
+std::atomic<bool> time_ready{false};
 SystemClock system_clock;
 const FixedTimeZone utc(timezone::UTC);
 const RecurringTimeZone local_zone(UtcOffset(Hours(1)), rules::EuSummerTime());
 
-// SNTP runs on a different task; communicate completion without a data race.
-void OnTimeSync(struct timeval*) {
-  synchronized.store(true, std::memory_order_release);
-}
+void OnTimeSync(struct timeval*) { time_ready = true; }
 
 // Keep emulator details out of the connection and display flow below.
 #ifdef ROO_TESTING
@@ -38,7 +36,7 @@ void StartClock() {
 // A readable clock may still hold the epoch or a stale retained value.
 bool WaitForSync(Duration timeout) {
   const Uptime deadline = Uptime::Now() + timeout;
-  while (!synchronized.load(std::memory_order_acquire)) {
+  while (!time_ready) {
     if (Uptime::Now() >= deadline) return false;
     Delay(Millis(10));
   }
@@ -47,7 +45,7 @@ bool WaitForSync(Duration timeout) {
 
 void setup() {
   Serial.begin(115200);
-  synchronized.store(false, std::memory_order_release);
+  time_ready = false;
   WiFi.mode(WIFI_STA);
   WiFi.begin(kWifiSsid, kWifiPassword);
   const Uptime deadline = Uptime::Now() + Seconds(10);
@@ -67,7 +65,7 @@ void setup() {
 }
 
 void loop() {
-  if (!synchronized.load(std::memory_order_acquire)) {
+  if (!time_ready) {
     Serial.println("Time not synchronized.");
     Delay(Seconds(1));
     return;
@@ -81,11 +79,9 @@ void loop() {
     Delay(Seconds(1));
     return;
   }
-  char text[40];
-  if (FormatIsoDateTime(now, utc, text, sizeof(text)).status == TextStatus::kOk)
-    Serial.printf("UTC: %s\n", text);
-  if (FormatIsoDateTime(now, local_zone, text, sizeof(text)).status ==
-      TextStatus::kOk)
-    Serial.printf("Local: %s\n", text);
+  Serial.print("UTC: ");
+  Serial.println(FormatIsoDateTimeArduino(now, utc));
+  Serial.print("Local: ");
+  Serial.println(FormatIsoDateTimeArduino(now, local_zone));
   Delay(Seconds(1));
 }

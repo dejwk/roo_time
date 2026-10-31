@@ -12,13 +12,8 @@ void loop() {
   Delay(Millis(25));  // Stand-in for reading a sensor or processing a message.
   const Uptime finished = Uptime::Now();
   const Duration elapsed = finished - started;
-  char timestamp[40];
-  char duration[40];
-  if (FormatUptime(finished, timestamp, sizeof(timestamp)).status ==
-          TextStatus::kOk &&
-      FormatDuration(elapsed, duration, sizeof(duration)).status ==
-          TextStatus::kOk) {
-    Serial.printf("%s sensor read took %s\n", timestamp, duration);
-  }
+  Serial.print(FormatUptimeArduino(finished));
+  Serial.print(" sensor read took ");
+  Serial.println(FormatDurationArduino(elapsed));
   Delay(Millis(100));
 }

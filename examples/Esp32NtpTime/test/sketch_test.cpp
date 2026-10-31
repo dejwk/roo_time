@@ -5,7 +5,7 @@
 // Verifies timeout and callback readiness independently of system clock
 // validity.
 TEST(Esp32NtpTime, SynchronizationReadiness) {
-  synchronized.store(false);
+  time_ready = false;
   EXPECT_FALSE(WaitForSync(Millis(0)));
   OnTimeSync(nullptr);
   EXPECT_TRUE(WaitForSync(Millis(0)));
