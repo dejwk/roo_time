@@ -113,6 +113,51 @@ TEST(CivilDay, BoundariesAndArithmetic) {
   EXPECT_FALSE(first > last);
 }
 
+// Verifies signed differences, calendar boundaries, and inverse day arithmetic.
+TEST(CivilDay, Differences) {
+  const CivilDay first = CivilDay::FromYmd(1, 1, 1);
+  const CivilDay last = CivilDay::FromYmd(9999, 12, 31);
+  static_assert(std::is_same<decltype(first - last), int32_t>::value,
+                "Calendar differences are day counts");
+  EXPECT_EQ(3652058, last - first);
+  EXPECT_EQ(-3652058, first - last);
+  EXPECT_EQ(0, first - first);
+  EXPECT_EQ(0, last - last);
+  EXPECT_EQ(2, CivilDay::FromYmd(2000, 3, 1) - CivilDay::FromYmd(2000, 2, 28));
+  EXPECT_EQ(1, CivilDay::FromYmd(1900, 3, 1) - CivilDay::FromYmd(1900, 2, 28));
+  EXPECT_EQ(1, CivilDay::FromYmd(1970, 1, 1) - CivilDay::FromYmd(1969, 12, 31));
+  EXPECT_EQ(146097,
+            CivilDay::FromYmd(2400, 1, 1) - CivilDay::FromYmd(2000, 1, 1));
+  for (CivilDay date : {first, CivilDay::FromYmd(1970, 1, 1),
+                        CivilDay::FromYmd(2000, 2, 29), last}) {
+    for (int32_t offset : {-146097, -366, -1, 0, 1, 366, 146097}) {
+      const CivilDay shifted = date.addDays(offset);
+      if (!shifted.isValid()) continue;
+      EXPECT_EQ(offset, shifted - date);
+      EXPECT_EQ(-offset, date - shifted);
+      EXPECT_EQ(shifted, date.addDays(shifted - date));
+    }
+  }
+}
+
+// Verifies calendar differences do not measure elapsed hours across DST.
+TEST(CivilDay, DifferencesAcrossOffsetChange) {
+  const DateTime before(2026, 3, 29, UtcOffset(Hours(1)));
+  const DateTime after(2026, 3, 30, UtcOffset(Hours(2)));
+  EXPECT_EQ(Hours(23), after.wallTime() - before.wallTime());
+  EXPECT_EQ(1, after.civilDay() - before.civilDay());
+}
+
+#ifndef NDEBUG
+// Verifies subtraction rejects invalid dates on either side.
+TEST(CivilDayDeathTest, DifferencesRequireValidDates) {
+  const CivilDay valid = CivilDay::FromYmd(2026, 1, 1);
+  EXPECT_DEATH({ (void)(valid - CivilDay::Invalid()); }, "");
+  EXPECT_DEATH({ (void)(CivilDay::Invalid() - valid); }, "");
+  EXPECT_DEATH({ (void)(CivilDay::Invalid() - CivilDay::Invalid()); }, "");
+}
+#endif
+
 // Verifies extraction keeps the local date across UTC midnight and DST changes.
 TEST(CivilDay, LocalDateTimeExtraction) {
   const WallTime instant = DateTime(2024, 1, 1, timezone::UTC).wallTime();

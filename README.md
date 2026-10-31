@@ -132,10 +132,13 @@ Use `CivilDay` for a date without an instant or timezone:
 ```cpp
 CivilDay birthday = CivilDay::FromYmd(2000, 2, 29);
 CivilDay next_day = birthday.addDays(1);  // 2000-03-01
+int32_t days_apart = next_day - birthday;  // 1 calendar day.
 ```
 
 It supports years 1–9999, checked construction and arithmetic, and an invalid
-value. `DateTime::civilDay()` extracts its local date. `ParseCivilDay` and
+value. Subtracting two valid dates returns a signed `int32_t` calendar-day
+count, independent of elapsed hours or UTC offsets. `DateTime::civilDay()`
+extracts its local date. `ParseCivilDay` and
 `FormatCivilDay` share the existing numeric text engine. See
 [civil-date contracts and examples](docs/civil_day.md).
 

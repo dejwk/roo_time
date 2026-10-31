@@ -8,6 +8,7 @@ also available through `roo_time.h` and the Bazel `:core` target.
 using namespace roo_time;
 CivilDay date = CivilDay::FromYmd(2024, 2, 29);
 CivilDay tomorrow = date.addDays(1);  // 2024-03-01
+int32_t days_apart = tomorrow - date;  // 1 calendar day.
 bool leap = IsLeapYear(date.year());
 uint8_t length = DaysInMonth(date.year(), date.month());
 ```
@@ -16,6 +17,12 @@ Default construction and `CivilDay::Invalid()` produce the same invalid value.
 `FromYmd` validates signed 32-bit components before narrowing; it rejects invalid
 dates instead of normalizing them. `addDays` returns invalid for invalid input
 or a result outside the supported range, including arithmetic extremes.
+
+Subtracting valid dates (`a - b`) returns the signed number of calendar days
+from `b` to `a` as `int32_t`. Every difference in the supported range fits,
+including the endpoints (+/-3,652,058 days). Invalid operands violate a
+precondition and assert in debug builds. The count is independent of UTC
+offsets; adjacent dates remain one calendar day apart across DST transitions.
 
 Accessors and ordering require valid dates (asserted in debug builds). Equality
 is defined for every value, and two invalid dates compare equal. `IsLeapYear`

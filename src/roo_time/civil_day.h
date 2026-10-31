@@ -70,6 +70,15 @@ class CivilDay {
   /// invalid.
   CivilDay addDays(int32_t days) const;
 
+  /// Returns the signed number of calendar days from @p b to @p a.
+  /// Both dates must be valid (asserted in debug builds). Every supported
+  /// difference fits int32_t. This is a day count, independent of UTC offsets
+  /// or the elapsed duration between local midnights.
+  friend int32_t operator-(CivilDay a, CivilDay b) {
+    assert(a.isValid() && b.isValid());
+    return a.days_since_epoch_ - b.days_since_epoch_;
+  }
+
   /// Returns equality; two invalid dates compare equal.
   friend constexpr bool operator==(CivilDay a, CivilDay b) {
     return a.days_since_epoch_ == b.days_since_epoch_;
