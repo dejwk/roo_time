@@ -39,6 +39,8 @@ of that header.
 
 ```cpp
 #include "roo_time/chrono.h"
+using namespace roo_time;
+
 #if ROO_TIME_HAS_CHRONO
 Duration interval = FromChrono(std::chrono::milliseconds(1500));
 auto standard = ToChrono(interval);  // std::chrono::microseconds

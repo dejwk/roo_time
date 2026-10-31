@@ -8,7 +8,7 @@ The runnable sketches are Arduino examples; the library also supports ESP-IDF.
 
 ## Host emulation
 
-Host builds support both Arduino and ESP-IDF through roo_testing 2.0. With
+Host builds support both Arduino and ESP-IDF through roo_testing. With
 Bazelisk 1.21 or newer, a plain command defaults to Arduino and prints a notice:
 
     bazel test ...

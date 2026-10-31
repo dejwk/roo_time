@@ -61,10 +61,14 @@ using namespace roo_time;
 
 SystemClock clock;  // ESP32 or Linux; synchronization is configured separately.
 WallTime now = clock.now();
-if (now.isSet()) {
+// The application must also establish readiness and a supported calendar range.
+const WallTime first = DateTime(1, 1, 1, timezone::UTC).wallTime();
+const WallTime last = DateTime(9999, 12, 31, 23, 59, 59, 999999,
+                               timezone::UTC).wallTime();
+if (now.isSet() && now >= first && now <= last) {
   DateTime utc(now, timezone::UTC);
-  int hour = utc.hour();
-  // Only use calendar fields when the application also knows the clock is ready.
+  // utc.hour(), utc.minute(), etc. expose the UTC calendar fields.
+  // Only use them when the application also knows the clock is ready.
 }
 ```
 

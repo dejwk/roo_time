@@ -13,7 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  library:
     uses: dejwk/roo_testing/.github/workflows/client-ci.yml@95ecaae3c28b3b6a46f65b215029a4d30a587606 # roo_testing 2.1.2
     with:
       profiles: '["arduino", "idf"]'
+      build_targets: '//:all'
+      test_targets: '//:all'
+
+  examples:
+    uses: dejwk/roo_testing/.github/workflows/client-ci.yml@95ecaae3c28b3b6a46f65b215029a4d30a587606 # roo_testing 2.1.2
+    with:
+      profiles: '["arduino"]'
+      build_targets: '//examples/...'
+      test_targets: '//examples/...'

@@ -72,8 +72,11 @@ Include `roo_time/format.h` (Bazel `:format`) for allocation-free numeric text:
 ```cpp
 char text[11];
 FormatResult written = FormatCivilDay(date, "%d.%m.%Y", text, sizeof(text));
-CivilDay parsed;
-ParseResult read = ParseCivilDay(text, written.size, "%d.%m.%Y", &parsed);
+if (written.status == TextStatus::kOk) {
+  CivilDay parsed;
+  ParseResult read = ParseCivilDay(text, written.size, "%d.%m.%Y", &parsed);
+  // Use parsed only when read.status == TextStatus::kOk.
+}
 ```
 
 `ParseCivilDay` and `FormatCivilDay` share the date-time text engine. They support

@@ -245,6 +245,7 @@ the general API. Input can be a NUL-terminated string, a pointer plus length,
 Include `roo_time/format.h` for allocation-free time text conversion:
 
 ```cpp
+TimeOfDay morning = TimeOfDay::FromHms(6, 30);
 char text[16];
 FormatResult written = FormatTimeOfDay(morning, "%T.%f", text, sizeof(text));
 TimeOfDay parsed;

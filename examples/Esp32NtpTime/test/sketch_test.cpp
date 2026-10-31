@@ -17,7 +17,8 @@ TEST(Esp32NtpTime, HostClockSmoke) {
   setup();
   loop();
   const std::string output = testing::internal::GetCapturedStdout();
-  EXPECT_NE(output.find("Host clock (no NTP exchange)"), std::string::npos);
+  EXPECT_NE(output.find("Host clock ready (simulated sync; no NTP exchange)"),
+            std::string::npos);
   EXPECT_NE(output.find("UTC: "), std::string::npos);
   EXPECT_NE(output.find("Local: "), std::string::npos);
 }

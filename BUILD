@@ -340,3 +340,19 @@ cc_test(
     srcs = ["test/local_time_test.cpp"],
     deps = [":core", "@googletest//:gtest_main"],
 )
+
+# Compile the quick-start snippets from the README rather than maintaining copies.
+genrule(
+    name = "readme_examples_source",
+    srcs = ["README.md"],
+    outs = ["readme_examples.cpp"],
+    tools = ["test/readme_examples.awk"],
+    cmd = "awk -f $(location test/readme_examples.awk) $(location README.md) > $@",
+)
+
+cc_library(
+    name = "readme_examples_compile",
+    testonly = True,
+    srcs = [":readme_examples_source"],
+    deps = [":roo_time"],
+)

@@ -1,7 +1,5 @@
 #include <Arduino.h>
 
-#include <cstring>
-
 #include "roo_time.h"
 #include "roo_time/format.h"
 

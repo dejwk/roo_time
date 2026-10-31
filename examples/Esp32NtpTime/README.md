@@ -21,7 +21,8 @@ guarantee accuracy or future freshness. The sketch keeps showing time if Wi-Fi
 later disconnects. Restart after a Wi-Fi connection timeout.
 
 On the host, the in-process access point supplies connectivity and the clock
-shim reads host time. Output explicitly says `Host clock (no NTP exchange)`,
+shim reads host time. The host fixture in `emulator.h` supplies the simulated readiness notification.
+Output explicitly says `Host clock ready (simulated sync; no NTP exchange)`,
 followed by `UTC:` and `Local:` ISO timestamps. This validates the sketch flow,
 not a network NTP exchange. Hardware prints `SNTP synchronization confirmed.`
 

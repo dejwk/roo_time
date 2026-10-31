@@ -1,23 +1,14 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_sntp.h>
 
 #include <atomic>
-#ifndef ROO_TESTING
-#include <esp_sntp.h>
-#endif
+
 #include "roo_time.h"
 #include "roo_time/format.h"
 #include "roo_time/timezone.h"
 
 using namespace roo_time;
-
-#ifdef ROO_TESTING
-const char* wifi_ssid = "testwifi";
-const char* wifi_password = "pwd";
-#else
-const char* wifi_ssid = "<enter your SSID>";
-const char* wifi_password = "<enter your password>";
-#endif
 
 std::atomic<bool> synchronized(false);
 SystemClock system_clock;
@@ -28,6 +19,21 @@ const RecurringTimeZone local_zone(UtcOffset(Hours(1)), rules::EuSummerTime());
 void OnTimeSync(struct timeval*) {
   synchronized.store(true, std::memory_order_release);
 }
+
+// Keep emulator details out of the connection and display flow below.
+#ifdef ROO_TESTING
+#include "emulator.h"
+#else
+const char* const kWifiSsid = "<enter your SSID>";
+const char* const kWifiPassword = "<enter your password>";
+const char* const kClockReadyMessage = "SNTP synchronization confirmed.";
+
+// Register first so a fast initial synchronization cannot be missed.
+void StartClock() {
+  esp_sntp_set_time_sync_notification_cb(OnTimeSync);
+  configTime(0, 0, "pool.ntp.org");
+}
+#endif
 
 // A readable clock may still hold the epoch or a stale retained value.
 bool WaitForSync(Duration timeout) {
@@ -43,7 +49,7 @@ void setup() {
   Serial.begin(115200);
   synchronized.store(false, std::memory_order_release);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(wifi_ssid, wifi_password);
+  WiFi.begin(kWifiSsid, kWifiPassword);
   const Uptime deadline = Uptime::Now() + Seconds(10);
   while (WiFi.status() != WL_CONNECTED) {
     if (Uptime::Now() >= deadline) {
@@ -52,22 +58,12 @@ void setup() {
     }
     Delay(Millis(50));
   }
-#ifndef ROO_TESTING
-  esp_sntp_set_time_sync_notification_cb(OnTimeSync);
-#endif
-  configTime(0, 0, "pool.ntp.org");
-#ifdef ROO_TESTING
-  // The host shim reads the host clock and never exchanges NTP packets.
-  Serial.println("Host clock (no NTP exchange).");
-  OnTimeSync(nullptr);
-#endif
+  StartClock();
   if (!WaitForSync(Seconds(20))) {
     Serial.println("SNTP timed out; waiting for a later sync notification.");
     return;
   }
-#ifndef ROO_TESTING
-  Serial.println("SNTP synchronization confirmed.");
-#endif
+  Serial.println(kClockReadyMessage);
 }
 
 void loop() {
@@ -93,23 +89,3 @@ void loop() {
     Serial.printf("Local: %s\n", text);
   Delay(Seconds(1));
 }
-
-// Host-only Wi-Fi environment; the sketch above uses the regular ESP32 APIs.
-#ifdef ROO_TESTING
-#include <memory>
-
-#include "roo_testing/microcontrollers/esp32/fake_esp32.h"
-#include "roo_testing/transducers/wifi/wifi.h"
-struct Emulator {
-  roo_testing_transducers::wifi::Environment wifi;
-  Emulator() {
-    auto ap = std::make_unique<roo_testing_transducers::wifi::AccessPoint>(
-        roo_testing_transducers::wifi::MacAddress(1, 1, 1, 1, 1, 1),
-        "testwifi");
-    ap->setAuthMode(roo_testing_transducers::wifi::AUTH_WEP);
-    ap->setPasswd("pwd");
-    wifi.addAccessPoint(std::move(ap));
-    FakeEsp32().setWifiEnvironment(wifi);
-  }
-} emulator;
-#endif
