@@ -2,6 +2,7 @@
 
 #include "roo_time/civil_day.h"
 #include "roo_time/duration.h"
+#include "roo_time/time_of_day.h"
 
 #if defined(ESP_PLATFORM) || defined(__linux__)
 #define CTIME_HDR_DEFINED
@@ -259,6 +260,13 @@ class DateTime {
                                               int32_t micros, UtcOffset offset,
                                               DateTime& result);
 
+  /// Combines a civil date and local time using an explicit fixed offset.
+  /// Returns false and preserves @p result if @p date or @p time is invalid.
+  /// The offset must satisfy UtcOffset's contract; no DST lookup occurs.
+  [[nodiscard]] static bool TryFromComponents(CivilDay date, TimeOfDay time,
+                                              UtcOffset offset,
+                                              DateTime& result);
+
   /// Constructs `DateTime` for `wallTime` in time zone `tz`. The `wallTime`
   /// must be set.
   DateTime(WallTime wallTime, UtcOffset tz);
@@ -281,6 +289,11 @@ class DateTime {
   /// Returns the local civil date, discarding time of day and UTC offset.
   [[nodiscard]] CivilDay civilDay() const {
     return CivilDay::FromYmd(year_, month_, day_);
+  }
+
+  /// Returns the local clock reading, discarding the date and UTC offset.
+  [[nodiscard]] TimeOfDay timeOfDay() const {
+    return TimeOfDay::FromHms(hour_, minute_, second_, micros_);
   }
 
   /// Returns hour in [0, 23].

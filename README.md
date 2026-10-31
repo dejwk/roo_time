@@ -37,6 +37,7 @@ requires regular clock sampling and serialized calls; see
 | `Uptime` | A point on the device/process uptime clock | Measuring elapsed time and setting deadlines |
 | `WallTime` | A timestamp relative to the Unix epoch | Reading an RTC or a synchronized system clock |
 | `SmallDuration` / `SmallTimestamp` | Compact millisecond durations / wrapping timestamps | Storing many short-lived timing values |
+| `TimeOfDay` | A local clock reading without a date or timezone | Daily settings such as 06:30 |
 | `CivilDay` | A date without time or timezone | Checked Gregorian dates and calendar-day arithmetic |
 | `DateTime` | Calendar fields for a wall time at a fixed UTC offset | Displaying a date, hour, or day of week |
 
@@ -141,6 +142,34 @@ count, independent of elapsed hours or UTC offsets. `DateTime::civilDay()`
 extracts its local date. `ParseCivilDay` and
 `FormatCivilDay` share the existing numeric text engine. See
 [civil-date contracts and examples](docs/civil_day.md).
+
+## Time of day
+
+`TimeOfDay` represents a local clock reading without a date or timezone. It
+stores signed 64-bit microseconds and supports 00:00:00 through
+23:59:59.999999. Default construction and `Invalid()` represent an absent or
+invalid value; `Midnight()` is valid zero. Checked factories never normalize:
+
+```cpp
+TimeOfDay morning = TimeOfDay::FromHms(6, 30);  // Seconds/micros default to zero.
+TimeOfDay precise = TimeOfDay::FromSinceMidnight(Hours(6) + Minutes(30));
+bool same = morning == precise;
+DateTime appointment;
+bool valid = DateTime::TryFromComponents(CivilDay::FromYmd(2026, 11, 1),
+                                         morning, UtcOffset(Hours(1)),
+                                         appointment);
+TimeOfDay local_time = appointment.timeOfDay();
+```
+
+`FromHms` validates signed 32-bit fields before narrowing. Out-of-range input,
+including hour 24 and leap seconds, yields invalid. `FromSinceMidnight` rejects
+negative durations and values at or after 24 hours. Accessors (`hour`, `minute`,
+`second`, `micros`, `sinceMidnight`) and ordering require valid values and assert
+in debug builds. Two invalid values compare equal. Ordering compares clock
+positions within one day and does not wrap at midnight. `sinceMidnight()` is a
+clock position, independent of real elapsed time across DST transitions.
+Composition with a date requires an explicit fixed offset; invalid date/time
+inputs return false and leave the `DateTime` output unchanged.
 
 ## Calendar dates and UTC offsets
 

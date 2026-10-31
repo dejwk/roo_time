@@ -87,6 +87,7 @@ cc_library(
         "src/roo_time/internal/calendar.cpp",
         "src/roo_time/internal/calendar.h",
         "src/roo_time/duration.cpp",
+        "src/roo_time/time_of_day.h",
         "src/roo_time/wall_time.cpp",
         "src/roo_time/timezone.cpp",
         "src/roo_time/timezone.h",
@@ -281,5 +282,12 @@ cc_test(
     size = "small",
     srcs = ["test/system_clock_test.cpp"],
     linkopts = ["-Wl,--wrap=gettimeofday"],
+    deps = [":core", "@googletest//:gtest_main"],
+)
+
+cc_test(
+    name = "time_of_day_test",
+    size = "small",
+    srcs = ["test/time_of_day_test.cpp"],
     deps = [":core", "@googletest//:gtest_main"],
 )

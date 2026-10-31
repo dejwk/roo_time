@@ -49,6 +49,14 @@ bool DateTime::TryFromComponents(int32_t year, int32_t month, int32_t day,
   return true;
 }
 
+bool DateTime::TryFromComponents(CivilDay date, TimeOfDay time,
+                                 UtcOffset offset, DateTime& result) {
+  if (!date.isValid() || !time.isValid()) return false;
+  return TryFromComponents(date.year(), date.month(), date.day(), time.hour(),
+                           time.minute(), time.second(), time.micros(), offset,
+                           result);
+}
+
 DateTime::DateTime(WallTime wall_time, UtcOffset tz)
     : walltime_(wall_time), offset_(tz) {
   assert(wall_time.isSet());

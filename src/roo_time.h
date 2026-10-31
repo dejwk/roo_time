@@ -3,6 +3,7 @@
 /// Compatibility facade for roo_time's duration, uptime, and wall-time APIs.
 
 #include "roo_time/duration.h"
+#include "roo_time/time_of_day.h"
 #include "roo_time/uptime.h"
 #include "roo_time/wall_time.h"
 
