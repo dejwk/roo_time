@@ -21,3 +21,5 @@ available. Use the [platform guide](../docs/platforms.md) for build setup.
 - [PeriodicSampler](PeriodicSampler/README.md): Sample on a stable 100 ms cadence with `DelayUntil`, explicitly skipping missed
 
 - [CompactDebounce](CompactDebounce/README.md): Debounce two buttons using a four-byte `SmallTimestamp` per input and a
+
+- [Esp32NtpTime](Esp32NtpTime/README.md): Connect an ESP32 to Wi-Fi, wait for an SNTP synchronization notification,
