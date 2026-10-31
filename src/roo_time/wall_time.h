@@ -248,6 +248,17 @@ class DateTime {
   DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
            uint8_t minute, uint8_t second, uint32_t micros, UtcOffset tz);
 
+  /// Creates a validated date/time from calendar fields and a fixed offset.
+  /// Accepts years 1-9999, a valid month/day, hours 0-23, minutes/seconds
+  /// 0-59, and micros 0-999999. Returns false without changing @p result
+  /// when any component is invalid. Does not normalize or resolve DST.
+  /// The supplied offset must already satisfy UtcOffset's contract.
+  [[nodiscard]] static bool TryFromComponents(int32_t year, int32_t month,
+                                              int32_t day, int32_t hour,
+                                              int32_t minute, int32_t second,
+                                              int32_t micros, UtcOffset offset,
+                                              DateTime& result);
+
   /// Constructs `DateTime` for `wallTime` in time zone `tz`. The `wallTime`
   /// must be set.
   DateTime(WallTime wallTime, UtcOffset tz);

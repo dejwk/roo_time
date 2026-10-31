@@ -140,6 +140,22 @@ For the current local date and time, use `DateTime(my_clock.now(), local_offset)
 The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, and
 `micros()`.
 
+For calendar fields from settings, RTCs, or network input, validate before
+constructing a snapshot:
+
+```cpp
+DateTime checked;
+if (DateTime::TryFromComponents(2024, 2, 29, 12, 30, 0, 0,
+                                local_offset, checked)) {
+  // checked contains the validated date/time.
+}
+```
+
+`TryFromComponents` accepts signed 32-bit fields and checks them before
+narrowing. Invalid dates, years outside 1-9999, or out-of-range time fields
+return false and leave the output unchanged. Constructors retain their
+existing precondition that supplied components are valid.
+
 Breaking change: `TimeZone` is now an abstract offset resolver, replacing the
 former alias for `UtcOffset`. Replace old fixed-offset `TimeZone` declarations
 with `UtcOffset`. Prefer `DateTime::utcOffset()` over the deprecated `timeZone()`

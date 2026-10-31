@@ -36,6 +36,19 @@ DateTime::DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour,
   walltime_ = WallTime::SinceEpoch(Micros(t) - offset_.asDuration());
 }
 
+bool DateTime::TryFromComponents(int32_t year, int32_t month, int32_t day,
+                                 int32_t hour, int32_t minute, int32_t second,
+                                 int32_t micros, UtcOffset offset,
+                                 DateTime& result) {
+  if (!CivilDay::FromYmd(year, month, day).isValid() || hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59 || second < 0 || second > 59 || micros < 0 ||
+      micros > 999999) {
+    return false;
+  }
+  result = DateTime(year, month, day, hour, minute, second, micros, offset);
+  return true;
+}
+
 DateTime::DateTime(WallTime wall_time, UtcOffset tz)
     : walltime_(wall_time), offset_(tz) {
   assert(wall_time.isSet());

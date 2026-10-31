@@ -447,3 +447,57 @@ TEST(WallTime, StreamOutput) {
   EXPECT_EQ("<unset>;0 us since Epoch;-123 us since Epoch", output.str());
 }
 #endif
+
+// Verifies checked construction accepts boundary dates and preserves offsets.
+TEST(DateTime, CheckedComponentsValidBoundaries) {
+  using namespace roo_time;
+  for (int32_t year : {1, 4, 400, 1970, 2000, 2024, 9999}) {
+    for (UtcOffset offset : {UtcOffset(Minutes(INT16_MIN)), timezone::UTC,
+                             UtcOffset(Minutes(INT16_MAX))}) {
+      DateTime result;
+      ASSERT_TRUE(DateTime::TryFromComponents(year, 12, 31, 23, 59, 59, 999999,
+                                              offset, result));
+      const DateTime expected(year, 12, 31, 23, 59, 59, 999999, offset);
+      EXPECT_EQ(expected, result);
+      EXPECT_EQ(expected, DateTime(result.wallTime(), offset));
+    }
+  }
+  DateTime result;
+  ASSERT_TRUE(DateTime::TryFromComponents(2000, 2, 29, 0, 0, 0, 0,
+                                          timezone::UTC, result));
+  EXPECT_EQ(CivilDay::FromYmd(2000, 2, 29), result.civilDay());
+}
+
+// Verifies all fields are checked before narrowing and failures preserve
+// output.
+TEST(DateTime, CheckedComponentsRejectInvalidFields) {
+  using namespace roo_time;
+  const DateTime original(2026, 10, 31, UtcOffset(Hours(1)));
+  const int32_t valid[] = {2024, 2, 29, 23, 59, 59, 999999};
+  const int32_t above[] = {10000, 13, 30, 24, 60, 60, 1000000};
+  for (int field = 0; field < 7; ++field) {
+    for (int32_t bad : {-1, INT32_MIN, INT32_MAX, above[field]}) {
+      int32_t values[7];
+      for (int i = 0; i < 7; ++i) values[i] = valid[i];
+      values[field] = bad;
+      DateTime result = original;
+      EXPECT_FALSE(DateTime::TryFromComponents(
+          values[0], values[1], values[2], values[3], values[4], values[5],
+          values[6], timezone::UTC, result));
+      EXPECT_EQ(original, result);
+    }
+  }
+  for (int32_t year : {0, 1900, 2023, 2100}) {
+    DateTime result = original;
+    EXPECT_FALSE(DateTime::TryFromComponents(year, 2, 29, 0, 0, 0, 0,
+                                             timezone::UTC, result));
+    EXPECT_EQ(original, result);
+  }
+  for (int field = 1; field <= 2; ++field) {
+    DateTime result = original;
+    EXPECT_FALSE(DateTime::TryFromComponents(2024, field == 1 ? 0 : 2,
+                                             field == 2 ? 0 : 29, 0, 0, 0, 0,
+                                             timezone::UTC, result));
+    EXPECT_EQ(original, result);
+  }
+}
