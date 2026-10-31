@@ -101,5 +101,13 @@ int main() {
           TextStatus::kOk ||
       std::strcmp(buffer, "-2562047788:00:54.775808") != 0)
     return 12;
+  if (FormatUptime(Uptime::Start() + Millis(1), buffer, sizeof(buffer))
+              .status != TextStatus::kOk ||
+      std::strcmp(buffer, "S+00:00:00.001000") != 0)
+    return 13;
+  if (FormatUptime(Uptime::Start() + Duration::Min(), buffer, sizeof(buffer))
+              .status != TextStatus::kOk ||
+      std::strcmp(buffer, "S-2562047788:00:54.775808") != 0)
+    return 14;
   return CheckFractions() ? 0 : 6;
 }

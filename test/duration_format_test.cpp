@@ -76,6 +76,32 @@ TEST(DurationText, FractionsAndPrecision) {
   ExpectFormatted(Seconds(-1), "%F", "");
 }
 
+// Verifies explicit signs suppress automatic signs even when placed after
+// fields.
+TEST(DurationText, ExplicitSignPlacement) {
+  ExpectFormatted(Micros(0), "%+", "+");
+  ExpectFormatted(Seconds(1), "S%+%T", "S+1");
+  ExpectFormatted(Seconds(-1), "S%+%T", "S-1");
+  ExpectFormatted(Seconds(-1), "S%T", "-S1");
+  ExpectFormatted(Seconds(-1), "%T%+", "1-");
+  ExpectFormatted(Seconds(-1), "%+%T/%+", "-1/-");
+  ExpectFormatted(Seconds(-1), "%%+%T", "-%+1");
+  ExpectFormatted(Seconds(-1), "%+H", "-H");
+  ExpectFormatted(Micros(-1), "S%+%T.%.3f", "S-0.000");
+  ExpectFormatted(Duration::Min(), kUptimeClockMicrosFormat,
+                  "S-2562047788:00:54.775808");
+  ExpectFormatted(Duration::Max(), kUptimeClockMicrosFormat,
+                  "S+2562047788:00:54.775807");
+  const char format[] = {'%', 'T', '%', '+'};
+  char text[32];
+  ASSERT_EQ(TextStatus::kOk,
+            FormatDuration(Seconds(-1), format, 2, text, sizeof(text)).status);
+  EXPECT_STREQ("-1", text);
+  ASSERT_EQ(TextStatus::kOk,
+            FormatDuration(Seconds(-1), format, 4, text, sizeof(text)).status);
+  EXPECT_STREQ("1-", text);
+}
+
 // Verifies integer padding modifiers, minimum widths, and nontruncating fields.
 TEST(DurationText, WidthsAndUnpaddedComponents) {
   const Duration value = Hours(76) + Minutes(5) + Seconds(6);
@@ -140,13 +166,29 @@ TEST(DurationText, BoundedBuffers) {
 
 // Verifies malformed directives are rejected before emitting partial output.
 TEST(DurationText, InvalidFormats) {
-  const char* formats[] = {nullptr, "%",     "%Y",
-                           "%:z",   "%Q",    "%0D",
-                           "%00H",  "%256D", "%999999999999999999999H",
-                           "%-03D", "%--H",  "%03T",
-                           "%-f",   "%2F",   "%.0f",
-                           "%.7f",  "%.3H",  "%.12f",
-                           "%.f",   "%+H",   "prefix %H bad %"};
+  const char* formats[] = {nullptr,
+                           "%",
+                           "%Y",
+                           "%:z",
+                           "%Q",
+                           "%0D",
+                           "%00H",
+                           "%256D",
+                           "%999999999999999999999H",
+                           "%-03D",
+                           "%--H",
+                           "%03T",
+                           "%-f",
+                           "%2F",
+                           "%.0f",
+                           "%.7f",
+                           "%.3H",
+                           "%.12f",
+                           "%.f",
+                           "%03+",
+                           "%-+",
+                           "%.3+",
+                           "prefix %H bad %"};
   for (const char* format : formats) {
     char text[32] = "unchanged";
     const FormatResult result =

@@ -319,3 +319,17 @@ cc_test(
         ("duration_format_portable_test", ":format_portable"),
     ]
 ]
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/uptime_format_test.cpp"],
+        linkstatic = True,
+        deps = [backend, "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("uptime_format_test", ":format"),
+        ("uptime_format_portable_test", ":format_portable"),
+    ]
+]

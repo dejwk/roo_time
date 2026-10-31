@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "roo_time/timezone.h"
+#include "roo_time/uptime.h"
 #include "roo_time/wall_time.h"
 
 // Header detection is conservative on older toolchains. Define to 1 only when
@@ -76,22 +77,29 @@ constexpr char kDurationClockMillisFormat[] = "%H:%M:%S.%.3f";
 /// Total hours, minutes, seconds, and exactly six fractional digits.
 constexpr char kDurationClockMicrosFormat[] = "%H:%M:%S.%f";
 
+/// Uptime clock with an explicit S+/S- marker, total hours, and six fraction
+/// digits.
+constexpr char kUptimeClockMicrosFormat[] = "S%+%H:%M:%S.%f";
+
 /// Formats the full signed duration range without allocation or saturation.
 /// Duration-specific directives (independent of calendar format directives):
 /// %D total days; %H total hours; %h hours within a day; %M minutes within an
 /// hour; %S seconds within a minute; %f six fraction digits without a point;
 /// %.1f through %.6f fixed fractional precision; %F optional point and fraction
 /// with trailing zeros removed; %T compact clock; %% literal percent.
+/// The standalone %+ directive emits + for zero/positive values and - for
+/// negative values at its position. Its presence anywhere in the format
+/// suppresses the automatic leading minus; use %+%H for sign plus hours.
 /// %D is unpadded; other integer fields default to two zero-padded digits.
 /// '-' disables integer padding (e.g. %-H). Widths 1-255 specify minimum
 /// space padding (%3D) or zero padding (%03D); larger values are not truncated.
 /// Modifiers apply only to integer fields; unsupported directives,
 /// combinations, zero widths, and embedded NULs return kInvalidFormat and clear
 /// writable output. Fractions truncate; leading fractional zeros are always
-/// retained. A negative value prefixes nonempty output with one minus sign,
-/// even if truncation hides its magnitude. Empty output remains empty. Buffer
-/// sizing, NUL termination, and non-overlap requirements match FormatDateTime
-/// below. Null ranges are valid only when their length is zero.
+/// retained. Without %+, a negative value prefixes nonempty output with one
+/// minus sign, even if truncation hides its magnitude. Empty output remains
+/// empty. Buffer sizing, NUL termination, and non-overlap requirements match
+/// FormatDateTime below. Null ranges are valid only when their length is zero.
 FormatResult FormatDuration(Duration value, const char* format,
                             size_t format_length, char* buffer,
                             size_t capacity);
@@ -186,6 +194,108 @@ inline String FormatDurationArduino(Duration value,
 /// Formats a bounded duration format view to Arduino String.
 inline String FormatDurationArduino(Duration value, roo::string_view format) {
   return FormatDurationArduino(value, format.data(), format.size());
+}
+#endif
+#endif
+
+/// Formats an uptime position using the shared duration format language.
+/// Equivalent to FormatDuration(value - Uptime::Start(), ...). The supplied
+/// format controls the entire output, including any marker and sign. Use
+/// kUptimeClockMicrosFormat for S+HH:MM:SS.ffffff (S- when negative).
+/// Buffer, error, non-overlap, full-range, and size-query contracts match
+/// FormatDuration. Empty formats produce empty output.
+FormatResult FormatUptime(Uptime value, const char* format,
+                          size_t format_length, char* buffer, size_t capacity);
+
+/// Formats an uptime using a NUL-terminated complete duration layout.
+inline FormatResult FormatUptime(Uptime value, const char* format, char* buffer,
+                                 size_t capacity) {
+  return FormatUptime(value, format,
+                      format != nullptr ? std::strlen(format) : 1, buffer,
+                      capacity);
+}
+
+/// Formats uptime as S+HH:MM:SS.ffffff, with total hours and S- if negative.
+inline FormatResult FormatUptime(Uptime value, char* buffer, size_t capacity) {
+  return FormatUptime(value, kUptimeClockMicrosFormat, buffer, capacity);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats uptime using a bounded complete duration layout.
+inline FormatResult FormatUptime(Uptime value, roo::string_view format,
+                                 char* buffer, size_t capacity) {
+  return FormatUptime(value, format.data(), format.size(), buffer, capacity);
+}
+#endif
+
+#if ROO_TIME_HAS_STD_STRING
+namespace internal {
+
+// Measures and writes a bounded complete uptime layout.
+inline std::string FormatUptimeString(Uptime value, const char* format,
+                                      size_t format_length) {
+  const FormatResult measured =
+      FormatUptime(value, format, format_length, nullptr, 0);
+  if (measured.status != TextStatus::kBufferTooSmall || measured.size == 0)
+    return {};
+  std::string text(measured.size + 1, '\0');
+  const FormatResult written =
+      FormatUptime(value, format, format_length, &text[0], text.size());
+  if (written.status != TextStatus::kOk) return {};
+  text.resize(written.size);
+  return text;
+}
+
+}  // namespace internal
+
+/// Formats uptime to std::string; returns empty on formatting error.
+/// Defaults to S+HH:MM:SS.ffffff, with total hours and S- for negative values.
+inline std::string FormatUptime(Uptime value,
+                                const char* format = kUptimeClockMicrosFormat) {
+  return internal::FormatUptimeString(
+      value, format, format != nullptr ? std::strlen(format) : 1);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded complete uptime layout to std::string.
+inline std::string FormatUptime(Uptime value, roo::string_view format) {
+  return internal::FormatUptimeString(value, format.data(), format.size());
+}
+#endif
+#endif
+
+#if defined(ARDUINO)
+/// Formats a bounded complete uptime layout to Arduino String.
+/// Returns empty on formatting or allocation failure.
+inline String FormatUptimeArduino(Uptime value, const char* format,
+                                  size_t format_length) {
+  char local[64];
+  const FormatResult formatted =
+      FormatUptime(value, format, format_length, local, sizeof(local));
+  if (formatted.status == TextStatus::kOk) return String(local);
+  if (formatted.status != TextStatus::kBufferTooSmall ||
+      formatted.size >= UINT_MAX)
+    return String();
+  char* buffer = static_cast<char*>(std::malloc(formatted.size + 1));
+  if (buffer == nullptr) return String();
+  const FormatResult written =
+      FormatUptime(value, format, format_length, buffer, formatted.size + 1);
+  String text = written.status == TextStatus::kOk ? String(buffer) : String();
+  std::free(buffer);
+  return text;
+}
+
+/// Formats uptime to Arduino String using the default or a complete layout.
+inline String FormatUptimeArduino(
+    Uptime value, const char* format = kUptimeClockMicrosFormat) {
+  return FormatUptimeArduino(value, format,
+                             format != nullptr ? std::strlen(format) : 1);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded complete uptime layout to Arduino String.
+inline String FormatUptimeArduino(Uptime value, roo::string_view format) {
+  return FormatUptimeArduino(value, format.data(), format.size());
 }
 #endif
 #endif

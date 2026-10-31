@@ -123,6 +123,7 @@ Duration format directives are independent of calendar directives:
 | `%.1f` through `%.6f` | Fixed fractional digits, truncating without rounding |
 | `%F` | Optional decimal point and fraction, omitting trailing zeros |
 | `%T` | Compact clock: `0`, `25`, `1:25`, `1:05:00`, or `27:00:00` |
+| `%+` | Explicit sign (`+` for zero/positive, `-` for negative); suppresses automatic leading minus |
 | `%%` | Literal percent |
 
 `%F` preserves leading fractional zeros: one millisecond is `.001`, one
@@ -133,8 +134,8 @@ Widths and `-` cannot be combined and apply only to integer directives.
 Unsupported directives/modifiers, zero widths, and embedded NULs are invalid
 formats and clear writable output.
 
-Negative values receive one leading minus sign on nonempty output; fractions
-truncate toward zero without carrying into seconds. A negative sub-millisecond
+Without `%+`, negative values receive one leading minus sign on nonempty
+output; fractions truncate toward zero without carrying into seconds. A negative sub-millisecond
 value formatted at millisecond precision retains its minus sign. Empty formats
 or an empty `%F` alone produce empty output. Literal-only nonempty output also
 receives the sign. The bounded-buffer and optional format-view overloads follow
@@ -148,6 +149,37 @@ default, NUL-terminated, bounded-range, and optional format-view forms.
 Formatting errors and empty output return empty strings; Arduino allocation
 failures also return empty. Buffer formatting remains usable with string and
 string-view support disabled.
+
+## Formatting uptime timestamps
+
+`FormatUptime` uses exactly the same formatter as `FormatDuration`, interpreting
+its input as a position since `Uptime::Start()`. The default complete format is
+`kUptimeClockMicrosFormat` (`S%+%H:%M:%S.%f`): an `S+` or `S-` marker, total
+hours rather than days, and exactly six fractional digits. The marker and sign
+are part of the format, so custom formats control the entire output:
+
+```cpp
+char text[48];
+Uptime stamp = Uptime::Start() + Hours(27) + Minutes(5) + Seconds(6) + Millis(1);
+FormatUptime(stamp, text, sizeof(text));  // "S+27:05:06.001000"
+FormatUptime(stamp, "S%+%T%F", text, sizeof(text));  // "S+27:05:06.001"
+FormatUptime(stamp, kDurationCompactFormat, text, sizeof(text)); // "27:05:06.001"
+```
+
+The standalone `%+` directive emits a sign where it appears and disables the
+usual leading minus. For example, negative one second with `S%+%T` produces
+`S-1`; literal `S%T` instead produces `-S1`. Use `%+%H`, not `%+H`, for a sign
+followed by total hours (`H` without `%` is a literal). Repeated `%+` directives
+each emit a sign. `%%+` is a literal `%+` and does not disable automatic signs.
+This directive works with `FormatDuration` as well as `FormatUptime`.
+
+The bounded-buffer, optional format-view, `std::string`, and Arduino
+`FormatUptimeArduino` overloads follow the duration formatter's contracts.
+Sizes count the entire formatted output excluding NUL; empty formats produce
+empty output. Invalid formats clear writable output and return
+`kInvalidFormat`. The full signed uptime range, including its minimum value,
+is supported without saturation. Uptime zero is the selected backend's clock
+origin, not a Unix wall-time timestamp.
 
 ## Compact timing values (prototype)
 

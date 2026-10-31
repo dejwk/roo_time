@@ -211,7 +211,8 @@ class DurationTokens {
       token.literal = '%';
       return true;
     }
-    if (token.code == 'f' || token.code == 'F' || token.code == 'T')
+    if (token.code == 'f' || token.code == 'F' || token.code == 'T' ||
+        token.code == '+')
       return true;
     return fail();
   }
@@ -567,17 +568,23 @@ FormatResult FormatDuration(Duration value, const char* format,
     return {TextStatus::kInvalidFormat, 0};
   DurationToken token;
   DurationTokens validation(format, format_length);
+  bool explicit_sign = false;
   while (validation.nextToken(token)) {
+    if (token.code == '+') explicit_sign = true;
   }
   if (!validation.isValid()) return {TextStatus::kInvalidFormat, 0};
 
   const int64_t micros = value.inMicros();
   const uint64_t magnitude =
       micros < 0 ? uint64_t{0} - uint64_t(micros) : uint64_t(micros);
-  bool needs_sign = micros < 0;
+  bool needs_sign = micros < 0 && !explicit_sign;
   Writer writer(buffer, capacity);
   DurationTokens tokens(format, format_length);
   while (tokens.nextToken(token)) {
+    if (token.code == '+') {
+      writer.putChar(micros < 0 ? '-' : '+');
+      continue;
+    }
     // A trimmed zero fraction emits nothing, including no orphan minus sign.
     if (token.code == 'F' && magnitude % 1000000LL == 0) continue;
     if (needs_sign) {
@@ -587,6 +594,12 @@ FormatResult FormatDuration(Duration value, const char* format,
     WriteDurationToken(writer, token, magnitude);
   }
   return writer.finishResult();
+}
+
+FormatResult FormatUptime(Uptime value, const char* format,
+                          size_t format_length, char* buffer, size_t capacity) {
+  return FormatDuration(value - Uptime::Start(), format, format_length, buffer,
+                        capacity);
 }
 
 FormatResult FormatDateTime(const DateTime& value, const char* format,

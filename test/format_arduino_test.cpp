@@ -62,6 +62,21 @@ int main() {
           0 ||
       std::strcmp(FormatDurationArduino(Seconds(-1), "").c_str(), "") != 0)
     return 17;
+  // Verifies uptime defaults, bounded formats, and large allocated results.
+  if (std::strcmp(FormatUptimeArduino(Uptime::Start()).c_str(),
+                  "S+00:00:00.000000") != 0)
+    return 19;
+  if (std::strcmp(FormatUptimeArduino(Uptime::Start() - Millis(1),
+                                      duration_format, sizeof(duration_format))
+                      .c_str(),
+                  "-0.001") != 0)
+    return 20;
+  const String long_uptime = FormatUptimeArduino(Uptime::Start(), "%0255H");
+  if (long_uptime.length() != 255 ||
+      std::strncmp(long_uptime.c_str(), "00", 2) != 0)
+    return 21;
+  if (std::strcmp(FormatUptimeArduino(Uptime::Start(), "%Q").c_str(), "") != 0)
+    return 22;
   String::fail_allocation = true;
   if (std::strcmp(FormatDateTimeArduino(value, "%F").c_str(), "") != 0)
     return 7;
@@ -73,5 +88,10 @@ int main() {
       std::strcmp(FormatDurationArduino(Seconds(1), long_format).c_str(), "") !=
           0)
     return 18;
+  // Verifies both short and long uptime allocation failures return empty.
+  if (std::strcmp(FormatUptimeArduino(Uptime::Start()).c_str(), "") != 0 ||
+      std::strcmp(FormatUptimeArduino(Uptime::Start(), "%0255H").c_str(), "") !=
+          0)
+    return 23;
   return 0;
 }
