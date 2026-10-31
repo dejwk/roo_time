@@ -291,3 +291,17 @@ cc_test(
     srcs = ["test/time_of_day_test.cpp"],
     deps = [":core", "@googletest//:gtest_main"],
 )
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/time_of_day_format_test.cpp"],
+        linkstatic = True,
+        deps = [backend, "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("time_of_day_format_test", ":format"),
+        ("time_of_day_format_portable_test", ":format_portable"),
+    ]
+]

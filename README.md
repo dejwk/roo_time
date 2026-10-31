@@ -171,6 +171,24 @@ clock position, independent of real elapsed time across DST transitions.
 Composition with a date requires an explicit fixed offset; invalid date/time
 inputs return false and leave the `DateTime` output unchanged.
 
+Include `roo_time/format.h` for allocation-free time text conversion:
+
+```cpp
+char text[16];
+FormatResult written = FormatTimeOfDay(morning, "%T.%f", text, sizeof(text));
+TimeOfDay parsed;
+ParseResult read = ParseTimeOfDay("06:30", 5, "%H:%M", &parsed);
+```
+
+`FormatTimeOfDay` and `ParseTimeOfDay` support `%H`, `%M`, `%S`, `%f`, `%T`,
+`%%`, and literals. Date and offset directives are rejected. Parsing requires
+hour and minute, defaults seconds/micros to zero, validates all ranges, requires
+duplicate fields to agree, and leaves output unchanged on failure. `%f` consumes
+up to six digits and scales shorter fractions to microseconds. Input must be
+consumed entirely. Buffer APIs support bounded ranges, size queries, and NUL
+termination just like `FormatCivilDay`; optional bounded string-view overloads
+are available without allocating.
+
 ## Calendar dates and UTC offsets
 
 Convert between wall time and calendar fields with `DateTime`:

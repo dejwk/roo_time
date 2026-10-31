@@ -85,5 +85,13 @@ int main() {
               .status != TextStatus::kOk ||
       std::strcmp(buffer, "2024-02-29") != 0)
     return 8;
+  TimeOfDay time;
+  if (ParseTimeOfDay("06:30", 5, "%H:%M", &time).status != TextStatus::kOk ||
+      time != TimeOfDay::FromHms(6, 30))
+    return 9;
+  if (FormatTimeOfDay(time, "%T.%f", buffer, sizeof(buffer)).status !=
+          TextStatus::kOk ||
+      std::strcmp(buffer, "06:30:00.000000") != 0)
+    return 10;
   return CheckFractions() ? 0 : 6;
 }

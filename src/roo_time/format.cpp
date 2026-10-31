@@ -78,15 +78,21 @@ class Tokens {
   bool valid_ = true;
 };
 
+enum class FieldSet { kDateTime, kDate, kTime };
+
 bool ValidFormat(const char* format, size_t length, bool& has_offset,
-                 bool date_only = false) {
+                 FieldSet field_set) {
   if (format == nullptr && length != 0) return false;
   Tokens tokens(format, length);
   char code, literal;
   has_offset = false;
   while (tokens.nextToken(code, literal)) {
-    if (date_only && code != '\0' && code != 'Y' && code != 'm' && code != 'd')
+    if (code != '\0' && ((field_set == FieldSet::kDate &&
+                          std::strchr("Ymd", code) == nullptr) ||
+                         (field_set == FieldSet::kTime &&
+                          std::strchr("HMSf", code) == nullptr))) {
       return false;
+    }
     if (code == 'z' || code == ':') has_offset = true;
   }
   return tokens.isValid();
@@ -265,8 +271,13 @@ class Parser {
     return setField(field, value, start);
   }
 
-  bool isComplete() {
-    if (pos != length_ || !seen[kYear] || !seen[kMonth] || !seen[kDay]) {
+  bool isComplete(FieldSet field_set) {
+    if (pos != length_) return failWith(TextStatus::kInvalidInput);
+    if (field_set == FieldSet::kTime) {
+      return (seen[kHour] && seen[kMinute]) ||
+             failWith(TextStatus::kInvalidInput);
+    }
+    if (!seen[kYear] || !seen[kMonth] || !seen[kDay]) {
       return failWith(TextStatus::kInvalidInput);
     }
     const int max_day =
@@ -307,14 +318,14 @@ class Parser {
   size_t positions[kCount] = {};
 };
 
-// Formats shared numeric fields for either a civil date or a date-time.
+// Formats numeric fields for dates, times of day, and date-times.
 FormatResult FormatFields(const int32_t* value, const char* format,
                           size_t format_length, char* buffer, size_t capacity,
-                          bool date_only) {
+                          FieldSet field_set) {
   if (capacity != 0 && buffer == nullptr) return {TextStatus::kInvalidInput, 0};
   if (capacity != 0) buffer[0] = '\0';
   bool has_offset;
-  if (!ValidFormat(format, format_length, has_offset, date_only))
+  if (!ValidFormat(format, format_length, has_offset, field_set))
     return {TextStatus::kInvalidFormat, 0};
   const int offset = value[kOffset];
   if (has_offset && (offset < -1439 || offset > 1439))
@@ -364,10 +375,10 @@ FormatResult FormatFields(const int32_t* value, const char* format,
 
 // Parses into shared fields after validating the format and destination.
 ParseResult ParseFields(const char* text, size_t length, const char* format,
-                        size_t format_length, bool date_only,
+                        size_t format_length, FieldSet field_set,
                         const void* result, Parser& parser) {
   bool has_offset;
-  if (!ValidFormat(format, format_length, has_offset, date_only))
+  if (!ValidFormat(format, format_length, has_offset, field_set))
     return {TextStatus::kInvalidFormat, 0};
   if ((text == nullptr && length != 0) || result == nullptr)
     return {TextStatus::kInvalidInput, 0};
@@ -379,7 +390,7 @@ ParseResult ParseFields(const char* text, size_t length, const char* format,
       return {parser.status, parser.pos};
     }
   }
-  if (!parser.isComplete()) return {parser.status, parser.pos};
+  if (!parser.isComplete(field_set)) return {parser.status, parser.pos};
   return {TextStatus::kOk, parser.pos};
 }
 
@@ -397,7 +408,8 @@ FormatResult FormatDateTime(const DateTime& value, const char* format,
       value.second(),
       static_cast<int32_t>(value.micros()),
       static_cast<int32_t>(value.utcOffset().inMinutes())};
-  return FormatFields(fields, format, format_length, buffer, capacity, false);
+  return FormatFields(fields, format, format_length, buffer, capacity,
+                      FieldSet::kDateTime);
 }
 
 FormatResult FormatCivilDay(CivilDay value, const char* format,
@@ -408,15 +420,50 @@ FormatResult FormatCivilDay(CivilDay value, const char* format,
     return {TextStatus::kInvalidInput, 0};
   }
   const int32_t fields[kCount] = {value.year(), value.month(), value.day()};
-  return FormatFields(fields, format, format_length, buffer, capacity, true);
+  return FormatFields(fields, format, format_length, buffer, capacity,
+                      FieldSet::kDate);
+}
+
+FormatResult FormatTimeOfDay(TimeOfDay value, const char* format,
+                             size_t format_length, char* buffer,
+                             size_t capacity) {
+  if (!value.isValid()) {
+    if (capacity != 0 && buffer != nullptr) buffer[0] = '\0';
+    return {TextStatus::kInvalidInput, 0};
+  }
+  // Supply a valid neutral date for libc backends; date directives are
+  // rejected.
+  const int32_t fields[kCount] = {2000,
+                                  1,
+                                  1,
+                                  value.hour(),
+                                  value.minute(),
+                                  value.second(),
+                                  static_cast<int32_t>(value.micros()),
+                                  0};
+  return FormatFields(fields, format, format_length, buffer, capacity,
+                      FieldSet::kTime);
+}
+
+ParseResult ParseTimeOfDay(const char* text, size_t length, const char* format,
+                           size_t format_length, TimeOfDay* result) {
+  Parser parser(text, length);
+  const ParseResult parsed = ParseFields(text, length, format, format_length,
+                                         FieldSet::kTime, result, parser);
+  if (parsed.status == TextStatus::kOk) {
+    *result =
+        TimeOfDay::FromHms(parser.fields[kHour], parser.fields[kMinute],
+                           parser.fields[kSecond], parser.fields[kMicros]);
+  }
+  return parsed;
 }
 
 ParseResult ParseDateTime(const char* text, size_t length, const char* format,
                           size_t format_length, UtcOffset default_offset,
                           DateTime* result) {
   Parser parser(text, length);
-  const ParseResult parsed =
-      ParseFields(text, length, format, format_length, false, result, parser);
+  const ParseResult parsed = ParseFields(text, length, format, format_length,
+                                         FieldSet::kDateTime, result, parser);
   if (parsed.status != TextStatus::kOk) return parsed;
   const int32_t* f = parser.fields;
   *result = DateTime(
@@ -429,8 +476,8 @@ ParseResult ParseDateTime(const char* text, size_t length, const char* format,
 ParseResult ParseCivilDay(const char* text, size_t length, const char* format,
                           size_t format_length, CivilDay* result) {
   Parser parser(text, length);
-  const ParseResult parsed =
-      ParseFields(text, length, format, format_length, true, result, parser);
+  const ParseResult parsed = ParseFields(text, length, format, format_length,
+                                         FieldSet::kDate, result, parser);
   if (parsed.status == TextStatus::kOk) {
     *result = CivilDay::FromYmd(parser.fields[kYear], parser.fields[kMonth],
                                 parser.fields[kDay]);

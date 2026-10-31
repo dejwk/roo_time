@@ -108,6 +108,54 @@ inline ParseResult ParseCivilDay(roo::string_view text, roo::string_view format,
 }
 #endif
 
+/// Formats a local clock reading without allocation.
+/// Supports %H, %M, %S, %f, %T, %% and literals; date/offset directives are
+/// invalid formats. An invalid time returns kInvalidInput and clears writable
+/// output. Buffer sizing, NUL termination, and non-overlap requirements match
+/// FormatDateTime below; nullptr, 0 queries the required output size.
+FormatResult FormatTimeOfDay(TimeOfDay value, const char* format,
+                             size_t format_length, char* buffer,
+                             size_t capacity);
+
+/// Strictly parses an entire local clock reading without normalization.
+/// Supports %H/%M/%S (two digits), %f (one through six digits), %T, %% and
+/// literals. Hour and minute are required; seconds and micros default to zero.
+/// Duplicate fields must agree. Date/offset directives are invalid formats.
+/// Failure leaves @p result unchanged. Ranges need not be NUL-terminated;
+/// null pointers are valid only for empty ranges, and result must be nonnull.
+ParseResult ParseTimeOfDay(const char* text, size_t length, const char* format,
+                           size_t format_length, TimeOfDay* result);
+
+/// Formats a time of day with a NUL-terminated format string.
+inline FormatResult FormatTimeOfDay(TimeOfDay value, const char* format,
+                                    char* buffer, size_t capacity) {
+  return FormatTimeOfDay(value, format,
+                         format != nullptr ? std::strlen(format) : 1, buffer,
+                         capacity);
+}
+
+/// Parses a time of day with a NUL-terminated format string.
+inline ParseResult ParseTimeOfDay(const char* text, size_t length,
+                                  const char* format, TimeOfDay* result) {
+  return ParseTimeOfDay(text, length, format,
+                        format != nullptr ? std::strlen(format) : 1, result);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a time of day using a bounded format view.
+inline FormatResult FormatTimeOfDay(TimeOfDay value, roo::string_view format,
+                                    char* buffer, size_t capacity) {
+  return FormatTimeOfDay(value, format.data(), format.size(), buffer, capacity);
+}
+
+/// Parses bounded time-of-day text and format views.
+inline ParseResult ParseTimeOfDay(roo::string_view text,
+                                  roo::string_view format, TimeOfDay* result) {
+  return ParseTimeOfDay(text.data(), text.size(), format.data(), format.size(),
+                        result);
+}
+#endif
+
 /// Formats a valid DateTime without allocation. Supported directives are %Y,
 /// %m, %d, %H, %M, %S, %f, %z, %:z, %F, %T, and %%; other bytes are literals.
 /// Offset directives require an offset from -23:59 through +23:59. Ranges need
