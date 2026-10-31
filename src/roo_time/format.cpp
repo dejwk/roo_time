@@ -121,6 +121,21 @@ class Writer {
     for (unsigned i = 0; i < width; ++i) putChar(digits[i]);
   }
 
+  // Writes a full unsigned count with minimum-width padding, never truncating.
+  void putUnsigned(uint64_t value, unsigned width, char padding) {
+    char digits[20];
+    unsigned count = 0;
+    do {
+      digits[count++] = '0' + value % 10;
+      value /= 10;
+    } while (value != 0);
+    while (width > count) {
+      putChar(padding);
+      --width;
+    }
+    while (count != 0) putChar(digits[--count]);
+  }
+
   FormatResult finishResult() {
     if (size_ == static_cast<size_t>(-1)) {
       if (capacity_ != 0) buffer_[0] = '\0';
@@ -137,6 +152,153 @@ class Writer {
   size_t capacity_;
   size_t size_ = 0;
 };
+
+// Duration directives have their own grammar; calendar aliases stay unchanged.
+struct DurationToken {
+  char code = '\0';
+  char literal = '\0';
+  char padding = '0';
+  unsigned width = 0;
+  unsigned precision = 6;
+};
+
+// Reads one bounded duration token, including width or fractional precision.
+class DurationTokens {
+ public:
+  DurationTokens(const char* data, size_t size) : data_(data), size_(size) {}
+
+  bool nextToken(DurationToken& token) {
+    if (pos_ == size_ || !valid_) return false;
+    token = DurationToken();
+    const char c = data_[pos_++];
+    if (c == '\0') return fail();
+    if (c != '%') {
+      token.literal = c;
+      return true;
+    }
+    if (pos_ == size_) return fail();
+    if (data_[pos_] == '.') {
+      ++pos_;
+      if (pos_ == size_ || data_[pos_] < '1' || data_[pos_] > '6')
+        return fail();
+      token.precision = data_[pos_++] - '0';
+      if (pos_ == size_ || data_[pos_++] != 'f') return fail();
+      token.code = 'f';
+      return true;
+    }
+    bool modified = false;
+    if (data_[pos_] == '-') {
+      modified = true;
+      ++pos_;
+    } else if (IsDigit(data_[pos_])) {
+      modified = true;
+      token.padding = data_[pos_] == '0' ? '0' : ' ';
+      do {
+        token.width = token.width * 10 + data_[pos_++] - '0';
+        if (token.width > 255) return fail();
+      } while (pos_ < size_ && IsDigit(data_[pos_]));
+      if (token.width == 0) return fail();
+    }
+    if (pos_ == size_) return fail();
+    token.code = data_[pos_++];
+    if (token.code != '\0' && std::strchr("DHhMS", token.code) != nullptr) {
+      if (!modified) token.width = token.code == 'D' ? 1 : 2;
+      return true;
+    }
+    if (modified) return fail();
+    if (token.code == '%') {
+      token.code = '\0';
+      token.literal = '%';
+      return true;
+    }
+    if (token.code == 'f' || token.code == 'F' || token.code == 'T')
+      return true;
+    return fail();
+  }
+
+  bool isValid() const { return valid_; }
+
+ private:
+  bool fail() {
+    valid_ = false;
+    return false;
+  }
+
+  const char* data_;
+  size_t size_;
+  size_t pos_ = 0;
+  bool valid_ = true;
+};
+
+// Emits the shortest clock with trailing components padded to two digits.
+void WriteCompactDuration(Writer& writer, uint64_t magnitude) {
+  const uint64_t hours = magnitude / 3600000000LL;
+  const unsigned minutes = magnitude / 60000000LL % 60;
+  const unsigned seconds = magnitude / 1000000LL % 60;
+  if (hours != 0) {
+    writer.putUnsigned(hours, 1, '0');
+    writer.putChar(':');
+    writer.putNumber(minutes, 2);
+    writer.putChar(':');
+    writer.putNumber(seconds, 2);
+  } else if (minutes != 0) {
+    writer.putUnsigned(minutes, 1, '0');
+    writer.putChar(':');
+    writer.putNumber(seconds, 2);
+  } else {
+    writer.putUnsigned(seconds, 1, '0');
+  }
+}
+
+// Emits a truncated fixed fraction or a decimal-prefixed trimmed fraction.
+void WriteDurationFraction(Writer& writer, uint32_t micros,
+                           DurationToken token) {
+  if (token.code == 'F') {
+    if (micros == 0) return;
+    writer.putChar('.');
+    while (micros % 10 == 0) {
+      micros /= 10;
+      --token.precision;
+    }
+  } else {
+    for (unsigned digits = token.precision; digits < 6; ++digits) micros /= 10;
+  }
+  writer.putNumber(micros, token.precision);
+}
+
+// Writes a validated directive using the exact unsigned duration magnitude.
+void WriteDurationToken(Writer& writer, const DurationToken& token,
+                        uint64_t magnitude) {
+  uint64_t value = 0;
+  switch (token.code) {
+    case '\0':
+      writer.putChar(token.literal);
+      return;
+    case 'T':
+      WriteCompactDuration(writer, magnitude);
+      return;
+    case 'f':
+    case 'F':
+      WriteDurationFraction(writer, magnitude % 1000000LL, token);
+      return;
+    case 'D':
+      value = magnitude / 86400000000LL;
+      break;
+    case 'H':
+      value = magnitude / 3600000000LL;
+      break;
+    case 'h':
+      value = magnitude / 3600000000LL % 24;
+      break;
+    case 'M':
+      value = magnitude / 60000000LL % 60;
+      break;
+    case 'S':
+      value = magnitude / 1000000LL % 60;
+      break;
+  }
+  writer.putUnsigned(value, token.width, token.padding);
+}
 
 enum Field {
   kYear,
@@ -395,6 +557,37 @@ ParseResult ParseFields(const char* text, size_t length, const char* format,
 }
 
 }  // namespace
+
+FormatResult FormatDuration(Duration value, const char* format,
+                            size_t format_length, char* buffer,
+                            size_t capacity) {
+  if (capacity != 0 && buffer == nullptr) return {TextStatus::kInvalidInput, 0};
+  if (capacity != 0) buffer[0] = '\0';
+  if (format == nullptr && format_length != 0)
+    return {TextStatus::kInvalidFormat, 0};
+  DurationToken token;
+  DurationTokens validation(format, format_length);
+  while (validation.nextToken(token)) {
+  }
+  if (!validation.isValid()) return {TextStatus::kInvalidFormat, 0};
+
+  const int64_t micros = value.inMicros();
+  const uint64_t magnitude =
+      micros < 0 ? uint64_t{0} - uint64_t(micros) : uint64_t(micros);
+  bool needs_sign = micros < 0;
+  Writer writer(buffer, capacity);
+  DurationTokens tokens(format, format_length);
+  while (tokens.nextToken(token)) {
+    // A trimmed zero fraction emits nothing, including no orphan minus sign.
+    if (token.code == 'F' && magnitude % 1000000LL == 0) continue;
+    if (needs_sign) {
+      writer.putChar('-');
+      needs_sign = false;
+    }
+    WriteDurationToken(writer, token, magnitude);
+  }
+  return writer.finishResult();
+}
 
 FormatResult FormatDateTime(const DateTime& value, const char* format,
                             size_t format_length, char* buffer,

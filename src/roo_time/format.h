@@ -61,6 +61,63 @@ struct ParseResult {
   size_t position;
 };
 
+/// Total hours, minutes, seconds, and an optional trimmed fraction.
+constexpr char kDurationClockFormat[] = "%H:%M:%S%F";
+
+/// Clock omitting leading zero components, with an optional trimmed fraction.
+constexpr char kDurationCompactFormat[] = "%T%F";
+
+/// Days marked with 'd', hours within a day, and an optional trimmed fraction.
+constexpr char kDurationDaysClockFormat[] = "%Dd %h:%M:%S%F";
+
+/// Total hours, minutes, seconds, and exactly three fractional digits.
+constexpr char kDurationClockMillisFormat[] = "%H:%M:%S.%.3f";
+
+/// Total hours, minutes, seconds, and exactly six fractional digits.
+constexpr char kDurationClockMicrosFormat[] = "%H:%M:%S.%f";
+
+/// Formats the full signed duration range without allocation or saturation.
+/// Duration-specific directives (independent of calendar format directives):
+/// %D total days; %H total hours; %h hours within a day; %M minutes within an
+/// hour; %S seconds within a minute; %f six fraction digits without a point;
+/// %.1f through %.6f fixed fractional precision; %F optional point and fraction
+/// with trailing zeros removed; %T compact clock; %% literal percent.
+/// %D is unpadded; other integer fields default to two zero-padded digits.
+/// '-' disables integer padding (e.g. %-H). Widths 1-255 specify minimum
+/// space padding (%3D) or zero padding (%03D); larger values are not truncated.
+/// Modifiers apply only to integer fields; unsupported directives,
+/// combinations, zero widths, and embedded NULs return kInvalidFormat and clear
+/// writable output. Fractions truncate; leading fractional zeros are always
+/// retained. A negative value prefixes nonempty output with one minus sign,
+/// even if truncation hides its magnitude. Empty output remains empty. Buffer
+/// sizing, NUL termination, and non-overlap requirements match FormatDateTime
+/// below. Null ranges are valid only when their length is zero.
+FormatResult FormatDuration(Duration value, const char* format,
+                            size_t format_length, char* buffer,
+                            size_t capacity);
+
+/// Formats a duration with a NUL-terminated duration format string.
+inline FormatResult FormatDuration(Duration value, const char* format,
+                                   char* buffer, size_t capacity) {
+  return FormatDuration(value, format,
+                        format != nullptr ? std::strlen(format) : 1, buffer,
+                        capacity);
+}
+
+/// Formats a duration with the default clock and optional trimmed fraction.
+inline FormatResult FormatDuration(Duration value, char* buffer,
+                                   size_t capacity) {
+  return FormatDuration(value, kDurationClockFormat, buffer, capacity);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a duration using a bounded duration format view.
+inline FormatResult FormatDuration(Duration value, roo::string_view format,
+                                   char* buffer, size_t capacity) {
+  return FormatDuration(value, format.data(), format.size(), buffer, capacity);
+}
+#endif
+
 /// Formats a civil date without allocation. Supports %Y, %m, %d, %F, %% and
 /// literal separators; time/offset directives are invalid formats. An invalid
 /// date returns kInvalidInput and clears writable output. Buffer sizing,

@@ -88,6 +88,59 @@ must be integers representable in `int64_t`, and quotients must fit their result
 type. Preconditions assert in debug builds. `Duration::Min() % Micros(-1)` is
 explicitly supported and returns zero; division by that value would overflow.
 
+## Formatting durations
+
+Include `roo_time/format.h` and use `FormatDuration` for the entire signed
+64-bit microsecond range, including `Duration::Min()`, without component
+saturation or heap allocation:
+
+```cpp
+char text[48];
+FormatResult written = FormatDuration(Seconds(85) + Millis(1),
+                                       kDurationCompactFormat, text,
+                                       sizeof(text));  // "1:25.001"
+FormatDuration(Hours(27), text, sizeof(text));  // Default: "27:00:00".
+```
+
+| Constant | Duration format | Example |
+| --- | --- | --- |
+| `kDurationClockFormat` (default) | `%H:%M:%S%F` | `27:05:06.001` |
+| `kDurationCompactFormat` | `%T%F` | `1:25.001` |
+| `kDurationDaysClockFormat` | `%Dd %h:%M:%S%F` | `3d 04:05:06.001` |
+| `kDurationClockMillisFormat` | `%H:%M:%S.%.3f` | `27:05:06.001` |
+| `kDurationClockMicrosFormat` | `%H:%M:%S.%f` | `27:05:06.001000` |
+
+Duration format directives are independent of calendar directives:
+
+| Directive | Meaning |
+| --- | --- |
+| `%D` | Total whole days, unpadded |
+| `%H` | Total whole hours, at least two digits |
+| `%h` | Hours within a day, `00-23` |
+| `%M` | Minutes within an hour, `00-59` |
+| `%S` | Seconds within a minute, `00-59` |
+| `%f` | Six fractional digits, without a decimal point |
+| `%.1f` through `%.6f` | Fixed fractional digits, truncating without rounding |
+| `%F` | Optional decimal point and fraction, omitting trailing zeros |
+| `%T` | Compact clock: `0`, `25`, `1:25`, `1:05:00`, or `27:00:00` |
+| `%%` | Literal percent |
+
+`%F` preserves leading fractional zeros: one millisecond is `.001`, one
+microsecond is `.000001`, and whole seconds emit no fraction. `%-H`, `%-h`,
+`%-M`, `%-S`, and `%-D` disable padding. Explicit minimum widths from 1 through
+255 use spaces (`%3D`) or zeros (`%03D`); digits are never truncated to fit.
+Widths and `-` cannot be combined and apply only to integer directives.
+Unsupported directives/modifiers, zero widths, and embedded NULs are invalid
+formats and clear writable output.
+
+Negative values receive one leading minus sign on nonempty output; fractions
+truncate toward zero without carrying into seconds. A negative sub-millisecond
+value formatted at millisecond precision retains its minus sign. Empty formats
+or an empty `%F` alone produce empty output. Literal-only nonempty output also
+receives the sign. The bounded-buffer and optional format-view overloads follow
+the existing formatting contracts: size queries use `nullptr, 0`, sizes exclude
+the NUL terminator, and output must not overlap the format.
+
 ## Compact timing values (prototype)
 
 `SmallDuration` and `SmallTimestamp` store millisecond timing values in four bytes

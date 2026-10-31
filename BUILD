@@ -305,3 +305,17 @@ cc_test(
         ("time_of_day_format_portable_test", ":format_portable"),
     ]
 ]
+
+[
+    cc_test(
+        name = name,
+        size = "small",
+        srcs = ["test/duration_format_test.cpp"],
+        linkstatic = True,
+        deps = [backend, "@googletest//:gtest_main"],
+    )
+    for name, backend in [
+        ("duration_format_test", ":format"),
+        ("duration_format_portable_test", ":format_portable"),
+    ]
+]
