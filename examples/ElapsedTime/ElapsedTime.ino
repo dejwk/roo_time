@@ -1,34 +1,24 @@
 #include <Arduino.h>
 
 #include "roo_time.h"
+#include "roo_time/format.h"
 
 using namespace roo_time;
 
-void setup() {
-  Serial.begin(9600);
-}
+void setup() { Serial.begin(115200); }
 
 void loop() {
-  // Uptime carries microseconds since program start.
-  Uptime now = Uptime::Now();
-
-  // Conveniently convert to various time units, as needed.
-  Serial.println(now.inMillis());
-
-  // Basic arithmetics and convenience construction.
-  now += Hours(2);
-
-  Serial.println(now.inMinutes());
-
-  // Measuring elapsed time.
-  Uptime start = Uptime::Now();
-  delay(3500);
-  Duration elapsed = Uptime::Now() - start;
-  if (elapsed > Seconds(2)) {
-    Serial.print("Elapsed:");
-    Serial.print(elapsed.inMillis());
-    Serial.println("ms");
+  const Uptime started = Uptime::Now();
+  Delay(Millis(25));  // Stand-in for reading a sensor or processing a message.
+  const Uptime finished = Uptime::Now();
+  const Duration elapsed = finished - started;
+  char timestamp[40];
+  char duration[40];
+  if (FormatUptime(finished, timestamp, sizeof(timestamp)).status ==
+          TextStatus::kOk &&
+      FormatDuration(elapsed, duration, sizeof(duration)).status ==
+          TextStatus::kOk) {
+    Serial.printf("%s sensor read took %s\n", timestamp, duration);
   }
-
-  delay(5000);
+  Delay(Millis(100));
 }

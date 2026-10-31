@@ -15,3 +15,5 @@ They will appear here as each runnable example lands.
 
 Run commands from the repository root with the library and its dependencies
 available. Use the [platform guide](../docs/platforms.md) for build setup.
+
+- [ElapsedTime](ElapsedTime/README.md): Measure a sensor operation with `Uptime` subtraction, then format the resulting
