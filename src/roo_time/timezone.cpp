@@ -25,15 +25,28 @@ WallTime TransitionAt(const AnnualTransition& t, int year, UtcOffset base,
   return instant;
 }
 
-#ifndef NDEBUG
 WallTime CalendarBegin() { return DateTime(1, 1, 1, timezone::UTC).wallTime(); }
 
 WallTime CalendarEnd() {
   return DateTime(9999, 12, 31, timezone::UTC).wallTime() + Hours(24);
 }
-#endif
 
 }  // namespace
+
+LocalTimeResolution TimeZone::resolveLocal(CivilDay date,
+                                           TimeOfDay time) const {
+  if (!date.isValid() || !time.isValid())
+    return {LocalTimeStatus::kInvalidInput};
+  return {LocalTimeStatus::kUnsupported};
+}
+
+LocalTimeResolution FixedTimeZone::resolveLocal(CivilDay date,
+                                                TimeOfDay time) const {
+  DateTime local;
+  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local))
+    return {LocalTimeStatus::kInvalidInput};
+  return {LocalTimeStatus::kUnique, local.wallTime() - offset_.asDuration()};
+}
 
 bool AnnualDateRule::isValid() const {
   if (month_ < kJanuary || month_ > kDecember) return false;
@@ -96,6 +109,50 @@ UtcOffset RecurringTimeZone::resolveOffset(WallTime instant) const {
   return adjusted ? UtcOffset(base_offset_.asDuration() +
                               rules_.adjustment.asDuration())
                   : base_offset_;
+}
+
+LocalTimeResolution RecurringTimeZone::resolveLocal(CivilDay date,
+                                                    TimeOfDay time) const {
+  DateTime local;
+  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local))
+    return {LocalTimeStatus::kInvalidInput};
+  const UtcOffset offsets[] = {
+      base_offset_,
+      UtcOffset(base_offset_.asDuration() + rules_.adjustment.asDuration())};
+  const WallTime begin = CalendarBegin();
+  const WallTime end = CalendarEnd();
+  LocalTimeResolution result{LocalTimeStatus::kNonexistent};
+  bool out_of_range = false;
+  // These are the only possible offsets, including for candidates in an
+  // adjacent UTC year. Checking the actual candidate avoids assuming the local
+  // year.
+  for (int i = 0; i < 2; ++i) {
+    if (i == 1 && offsets[1] == offsets[0]) continue;
+    const WallTime candidate = local.wallTime() - offsets[i].asDuration();
+    if (candidate < begin || candidate >= end) {
+      out_of_range = true;
+      continue;
+    }
+    if (resolveOffset(candidate) != offsets[i]) continue;
+    if (!result.first.isSet()) {
+      result.first = candidate;
+      result.status = LocalTimeStatus::kUnique;
+    } else {
+      result.second = candidate < result.first ? result.first : candidate;
+      if (candidate < result.first) result.first = candidate;
+      result.status = LocalTimeStatus::kAmbiguous;
+    }
+  }
+  if (!result.first.isSet() && out_of_range)
+    result.status = LocalTimeStatus::kOutOfRange;
+  return result;
+}
+
+LocalTimeResolution ResolveLocal(CivilDay date, TimeOfDay time,
+                                 const TimeZone& zone) {
+  if (!date.isValid() || !time.isValid())
+    return {LocalTimeStatus::kInvalidInput};
+  return zone.resolveLocal(date, time);
 }
 
 DateTime ToLocal(WallTime instant, const TimeZone& zone) {

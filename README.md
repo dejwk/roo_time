@@ -672,8 +672,8 @@ if `gettimeofday` fails, distinguishable from a successful epoch reading.
 
 Wall time can jump forward or backward after synchronization or manual adjustment.
 Use `Uptime` for elapsed-time measurement and deadlines. Fixed offsets do not handle DST transitions. `TimeZone` resolves UTC instants
-to seasonal offsets. Reverse local-time resolution and automatic rule updates
-are not provided.
+to seasonal offsets. Local-time resolution is available for fixed and recurring zones; automatic
+rule updates are not provided.
 
 ### Rounding semantics
 
@@ -731,9 +731,10 @@ It requires the same input range and a resolved local date from
 0001-01-01T00:00:00.000000 through 9999-12-31T23:59:59.999999, inclusive. Violating
 either precondition has undefined behavior; the local-date bounds assert in debug builds.
 `DateTime` remains a fixed-offset snapshot: after shifting an instant across a
-transition, resolve it again. These APIs take an instant, not ambiguous local
-calendar fields. Parsing continues to use an explicit fixed offset; it does not
-infer a zone or choose between duplicated/nonexistent local times.
+transition, resolve it again. For the reverse direction, see
+[resolving local dates and times](#resolving-local-dates-and-times). Parsing
+continues to use an explicit fixed offset; it does not infer a zone or choose
+between duplicated/nonexistent local times.
 
 `FormatDateTime(instant, zone, ...)` and `FormatIsoDateTime(instant, zone, ...)`
 have buffer and optional `std::string` overloads, plus the existing Arduino
@@ -831,6 +832,53 @@ roo_time::AceTimeZone zone(ace_zone);
 
 The adapter preserves AceTime's supported instant range and requires its
 resolved total offset to be a whole number of minutes.
+
+### Resolving local dates and times
+
+`ResolveLocal(date, time, zone)` combines a `CivilDay`, `TimeOfDay`, and timezone
+without assuming how to handle daylight-saving gaps or repeated times:
+
+```cpp
+RecurringTimeZone zone(UtcOffset(Hours(1)), rules::EuSummerTime());
+LocalTimeResolution repeated = ResolveLocal(CivilDay::FromYmd(2026, 10, 25),
+                                             TimeOfDay::FromHms(2, 30), zone);
+// repeated.status == LocalTimeStatus::kAmbiguous
+// repeated.first  == 2026-10-25T00:30:00Z
+// repeated.second == 2026-10-25T01:30:00Z
+LocalTimeResolution missing = ResolveLocal(CivilDay::FromYmd(2026, 3, 29),
+                                            TimeOfDay::FromHms(2, 30), zone);
+// missing.status == LocalTimeStatus::kNonexistent; both instants are unset.
+```
+
+| Status | Result |
+| --- | --- |
+| `kUnique` | Only `first` is set |
+| `kAmbiguous` | Both are set, with `first < second` |
+| `kNonexistent` | The clock skipped this local time; both are unset |
+| `kInvalidInput` | Invalid civil date or time of day; both are unset |
+| `kOutOfRange` | No match, and a candidate is outside the zone's UTC range |
+| `kUnsupported` | The zone does not implement reverse resolution |
+
+`FixedTimeZone` resolves every valid local date/time uniquely. Its UTC result
+can lie before year 1 or after year 9999 when the fixed offset shifts a local
+calendar endpoint; this is within its supported `WallTime` range.
+`RecurringTimeZone` tries its two possible offsets, checks the candidate's UTC
+range, then validates its actual offset. It handles positive, negative, zero,
+and fractional-hour adjustments, microseconds, and year crossings without
+allocation or clock reads. Matches are limited to UTC years 1-9999. One match
+in that range is unique even if another candidate is out of range. With no
+matches, an out-of-range candidate gives `kOutOfRange`; otherwise the local time
+is nonexistent. Existing recurring-rule construction preconditions still apply.
+
+No overlap occurrence is selected implicitly and no gap time is shifted.
+The caller decides whether to choose an occurrence, skip an event, or apply a
+separate scheduling policy. Existing custom `TimeZone` classes and the optional
+AceTime adapter remain forward-only by default: the new virtual `resolveLocal`
+returns `kUnsupported` for valid input and `kInvalidInput` for invalid input.
+Override it to provide reverse resolution, preserving the result invariants
+and concurrent-const-call contract. The free function validates inputs before
+dispatch; direct built-in method calls also validate inputs. Default-constructed
+`LocalTimeResolution` is unsupported with both instants unset.
 
 ### Compact timing contracts
 

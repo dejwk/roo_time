@@ -333,3 +333,10 @@ cc_test(
         ("uptime_format_portable_test", ":format_portable"),
     ]
 ]
+
+cc_test(
+    name = "local_time_test",
+    size = "small",
+    srcs = ["test/local_time_test.cpp"],
+    deps = [":core", "@googletest//:gtest_main"],
+)

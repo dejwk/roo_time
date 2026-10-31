@@ -4,7 +4,44 @@
 
 namespace roo_time {
 
-/// Resolves a UTC instant to its complete local-minus-UTC offset.
+/// Describes how a local date and clock reading map to UTC instants.
+enum class LocalTimeStatus {
+  /// Exactly one supported UTC instant matches.
+  kUnique,
+
+  /// Two supported UTC instants match, ordered chronologically in the result.
+  kAmbiguous,
+
+  /// No UTC instant matches because an offset transition skipped this time.
+  kNonexistent,
+
+  /// The civil date or time of day is invalid.
+  kInvalidInput,
+
+  /// No match is available and a candidate lies outside the zone's UTC range.
+  kOutOfRange,
+
+  /// This zone does not implement reverse resolution.
+  kUnsupported,
+};
+
+/// Possible UTC instants for a local date and time, without choosing a DST
+/// policy. Unique results set only first; ambiguous results set both, with
+/// first < second. All other statuses leave both instants unset. Default
+/// construction represents unsupported resolution. No allocation or retained
+/// zone pointer.
+struct LocalTimeResolution {
+  /// Outcome of the reverse lookup; determines which instants are set.
+  LocalTimeStatus status = LocalTimeStatus::kUnsupported;
+
+  /// The unique instant or earlier occurrence; unset on failure.
+  WallTime first = WallTime::Unset();
+
+  /// The later occurrence for ambiguous times; otherwise unset.
+  WallTime second = WallTime::Unset();
+};
+
+/// Resolves UTC offsets and optionally maps local calendar fields to UTC.
 /// No clock reads or global timezone changes. The new offset applies exactly
 /// at a transition. Implementations document their minimum and maximum accepted
 /// instants; passing an instant outside that range has undefined behavior.
@@ -17,6 +54,13 @@ class TimeZone {
   /// Returns the total offset. The instant must be within the concrete
   /// implementation's documented range; otherwise behavior is undefined.
   virtual UtcOffset resolveOffset(WallTime instant) const = 0;
+
+  /// Resolves local calendar fields to supported UTC instants without
+  /// normalization. Invalid fields return kInvalidInput. Implementations must
+  /// satisfy the LocalTimeResolution field invariants and support concurrent
+  /// const calls. The default returns kUnsupported for valid inputs, preserving
+  /// source compatibility for existing forward-only zones. Override to opt in.
+  virtual LocalTimeResolution resolveLocal(CivilDay date, TimeOfDay time) const;
 };
 
 /// A fixed offset, valid for the entire WallTime range.
@@ -32,6 +76,12 @@ class FixedTimeZone final : public TimeZone {
     assert(instant.isSet());
     return offset_;
   }
+
+  /// Resolves every valid local date/time to its unique UTC instant.
+  /// UTC may lie outside calendar years 1-9999 because this fixed zone supports
+  /// the full WallTime range. Invalid local fields return kInvalidInput.
+  LocalTimeResolution resolveLocal(CivilDay date,
+                                   TimeOfDay time) const override;
 
  private:
   UtcOffset offset_;
@@ -144,6 +194,15 @@ class RecurringTimeZone final : public TimeZone {
   /// outside this range (asserted in debug builds).
   UtcOffset resolveOffset(WallTime instant) const override;
 
+  /// Tries the base and adjusted offsets and verifies each candidate's offset.
+  /// Only matches within the supported UTC years 1-9999 are returned. If none
+  /// match, returns kOutOfRange when any candidate is outside that UTC range,
+  /// otherwise kNonexistent. One in-range match is kUnique even if the other
+  /// candidate is out of range. Zero adjustment never duplicates an instant.
+  /// Invalid local fields return kInvalidInput. No allocation or clock reads.
+  LocalTimeResolution resolveLocal(CivilDay date,
+                                   TimeOfDay time) const override;
+
  private:
   UtcOffset base_offset_;
   SeasonalRules rules_;
@@ -173,6 +232,13 @@ SeasonalRules NewZealandDst();
 SeasonalRules LordHoweDst();
 
 }  // namespace rules
+
+/// Resolves local calendar fields without silently choosing an occurrence.
+/// Invalid date/time returns kInvalidInput before calling the zone. Otherwise
+/// dispatches to the zone's resolveLocal implementation, which defines the UTC
+/// range and may return kUnsupported. Gap times are not shifted automatically.
+LocalTimeResolution ResolveLocal(CivilDay date, TimeOfDay time,
+                                 const TimeZone& zone);
 
 /// Resolves once into a fixed-offset snapshot, retaining no zone pointer.
 /// The instant must be within the zone's documented range; otherwise behavior
