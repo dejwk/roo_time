@@ -234,6 +234,20 @@ constexpr int32_t CheckedSmallMillis(int64_t millis) {
   assert(millis >= INT32_MIN && millis <= INT32_MAX);
   return static_cast<int32_t>(millis);
 }
+
+// Checks integer division before evaluating operations with undefined results.
+constexpr int64_t DivideTimeCount(int64_t value, int64_t divisor) {
+  assert(divisor != 0);
+  assert(value != INT64_MIN || divisor != -1);
+  return value / divisor;
+}
+
+// Remainder by -1 is always zero, including for INT64_MIN.
+constexpr int64_t RemainderTimeCount(int64_t value, int64_t divisor) {
+  assert(divisor != 0);
+  return divisor == -1 ? 0 : value % divisor;
+}
+
 }  // namespace internal
 
 /// Represents an amount of time (e.g. 5s, 10min).
@@ -589,6 +603,52 @@ template <typename Rep, typename std::enable_if<
                             std::is_floating_point<Rep>::value, int>::type = 0>
 inline constexpr SmallDuration operator*(Rep factor, SmallDuration value) {
   return value * factor;
+}
+
+/// Divides a duration by a nonzero integer representable in int64_t.
+/// Truncates toward zero to microseconds. The result must fit int64_t.
+/// Zero divisors and INT64_MIN / -1 assert in debug builds; otherwise
+/// violating these preconditions has undefined behavior.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr Duration operator/(Duration value, Rep divisor) {
+  return Micros(internal::DivideTimeCount(
+      value.inMicros(), internal::ScaleTimeCount<1>(divisor)));
+}
+
+/// Returns the integer ratio of durations, truncating toward zero.
+/// The divisor must be nonzero and the ratio must fit int64_t; asserts in
+/// debug builds. Accepts compact or mixed operands by lossless widening.
+inline constexpr int64_t operator/(Duration value, Duration divisor) {
+  return internal::DivideTimeCount(value.inMicros(), divisor.inMicros());
+}
+
+/// Returns the microsecond remainder, with the dividend's sign or zero.
+/// The divisor must be nonzero (asserted in debug builds). Remainder by
+/// either one microsecond or minus one microsecond is always zero.
+/// Mixed compact/full operands return Duration through lossless widening.
+inline constexpr Duration operator%(Duration value, Duration divisor) {
+  return Micros(
+      internal::RemainderTimeCount(value.inMicros(), divisor.inMicros()));
+}
+
+/// Divides a compact duration by a nonzero integer representable in int64_t.
+/// Truncates toward zero to milliseconds. The result must fit int32_t;
+/// invalid divisors and out-of-range results assert in debug builds.
+template <typename Rep,
+          typename std::enable_if<std::is_integral<Rep>::value, int>::type = 0>
+inline constexpr SmallDuration operator/(SmallDuration value, Rep divisor) {
+  return SmallDuration::Millis(
+      internal::CheckedSmallMillis(internal::DivideTimeCount(
+          value.inMillis(), internal::ScaleTimeCount<1>(divisor))));
+}
+
+/// Returns the compact millisecond remainder, with the dividend's sign or zero.
+/// The divisor must be nonzero (asserted in debug builds).
+inline constexpr SmallDuration operator%(SmallDuration value,
+                                         SmallDuration divisor) {
+  return SmallDuration::Millis(static_cast<int32_t>(
+      internal::RemainderTimeCount(value.inMillis(), divisor.inMillis())));
 }
 
 }  // namespace roo_time

@@ -69,6 +69,24 @@ Subtracting two uptimes gives a duration. Adding a duration to an uptime gives
 another uptime. The same arithmetic works for wall time, but mixing wall time and
 uptime is a compile-time error.
 
+Integer division and remainder support period calculations without extracting
+raw counts:
+
+```cpp
+Duration half = Seconds(7) / 2;             // 3.5 seconds.
+int64_t periods = Seconds(7) / Seconds(2);   // 3 complete periods.
+Duration remainder = Seconds(7) % Seconds(2);  // 1 second.
+```
+
+Division truncates toward zero, at microsecond precision for `Duration` and
+millisecond precision for `SmallDuration`. Duration ratios return `int64_t`,
+including compact and mixed operands. Remainders have the dividend's sign or
+are zero. Compact-only scalar division and remainder preserve `SmallDuration`;
+mixed remainders widen to `Duration`. Divisors must be nonzero, scalar divisors
+must be integers representable in `int64_t`, and quotients must fit their result
+type. Preconditions assert in debug builds. `Duration::Min() % Micros(-1)` is
+explicitly supported and returns zero; division by that value would overflow.
+
 ## Compact timing values (prototype)
 
 `SmallDuration` and `SmallTimestamp` store millisecond timing values in four bytes

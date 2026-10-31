@@ -501,3 +501,76 @@ TEST(DateTime, CheckedComponentsRejectInvalidFields) {
     EXPECT_EQ(original, result);
   }
 }
+
+// Verifies division preserves integer precision, signs, and result types.
+TEST(Duration, DivisionAndRemainder) {
+  using namespace roo_time;
+  static_assert(
+      (Micros(9007199254740993LL) / 1).inMicros() == 9007199254740993LL,
+      "Exact integer division");
+  static_assert((Micros(-7) / 2).inMicros() == -3, "Truncate toward zero");
+  static_assert(Seconds(7) / Seconds(2) == 3, "Integer ratio");
+  static_assert((Seconds(-7) % Seconds(2)).inMicros() == -1000000,
+                "Dividend sign");
+  static_assert(
+      std::is_same<decltype(SmallMillis(7) / 2), SmallDuration>::value,
+      "Compact scalar division");
+  static_assert(
+      std::is_same<decltype(SmallMillis(7) / SmallMillis(2)), int64_t>::value,
+      "Consistent ratio type");
+  static_assert(std::is_same<decltype(SmallMillis(7) % SmallMillis(2)),
+                             SmallDuration>::value,
+                "Compact remainder");
+  static_assert(
+      std::is_same<decltype(SmallMillis(7) % Micros(2000)), Duration>::value,
+      "Mixed remainder widens");
+  for (int sign : {-1, 1}) {
+    for (int divisor_sign : {-1, 1}) {
+      const Duration value = Micros(sign * 7);
+      const Duration divisor = Micros(divisor_sign * 2);
+      EXPECT_EQ(Micros(sign * divisor_sign * 3), value / (divisor_sign * 2));
+      EXPECT_EQ(sign * divisor_sign * 3, value / divisor);
+      EXPECT_EQ(Micros(sign), value % divisor);
+      EXPECT_EQ(value, divisor * (value / divisor) + value % divisor);
+      const SmallDuration compact = SmallMillis(sign * 7);
+      const SmallDuration compact_divisor = SmallMillis(divisor_sign * 2);
+      EXPECT_EQ(SmallMillis(sign * divisor_sign * 3),
+                compact / (divisor_sign * 2));
+      EXPECT_EQ(sign * divisor_sign * 3, compact / compact_divisor);
+      EXPECT_EQ(SmallMillis(sign), compact % compact_divisor);
+    }
+  }
+  EXPECT_EQ(Micros(0), Micros(0) / 2);
+  EXPECT_EQ(0, Micros(1) / Seconds(1));
+  EXPECT_EQ(Duration::Min(), Duration::Min() / 1);
+  EXPECT_EQ(Duration::Max(), Duration::Max() / 1);
+  EXPECT_EQ(1, Duration::Min() / Duration::Min());
+  EXPECT_EQ(0, Duration::Max() / Duration::Min());
+  EXPECT_EQ(Micros(0), Duration::Min() % Micros(-1));
+  EXPECT_EQ(Duration::Max(), Duration::Max() % Duration::Min());
+  EXPECT_EQ(Micros(-1), Micros(-4294967296LL) / uint64_t{4294967296});
+  EXPECT_EQ(SmallMillis(0), SmallMillis(-1) / uint64_t{4294967296});
+  EXPECT_EQ(SmallMillis(INT32_MIN), SmallMillis(INT32_MIN) / 1);
+  EXPECT_EQ(SmallMillis(0), SmallMillis(INT32_MIN) % SmallMillis(-1));
+  EXPECT_EQ(2147483648LL, SmallMillis(INT32_MIN) / SmallMillis(-1));
+  EXPECT_EQ(-3, SmallMillis(-7) / Millis(2));
+  EXPECT_EQ(-3, Millis(-7) / SmallMillis(2));
+  EXPECT_EQ(Micros(-2000), SmallMillis(-7) % Micros(2500));
+  EXPECT_EQ(Micros(-1500), Micros(-7500) % SmallMillis(2));
+}
+
+#ifndef NDEBUG
+// Verifies invalid divisors and unrepresentable quotients fail before division.
+TEST(DurationDeathTest, DivisionPreconditions) {
+  using namespace roo_time;
+  EXPECT_DEATH({ (void)(Seconds(1) / 0); }, "");
+  EXPECT_DEATH({ (void)(Seconds(1) / Micros(0)); }, "");
+  EXPECT_DEATH({ (void)(Seconds(1) % Micros(0)); }, "");
+  EXPECT_DEATH({ (void)(Duration::Min() / -1); }, "");
+  EXPECT_DEATH({ (void)(Duration::Min() / Micros(-1)); }, "");
+  EXPECT_DEATH({ (void)(SmallMillis(1) / 0); }, "");
+  EXPECT_DEATH({ (void)(SmallMillis(INT32_MIN) / -1); }, "");
+  EXPECT_DEATH({ (void)(SmallMillis(1) % SmallMillis(0)); }, "");
+  EXPECT_DEATH({ (void)(Seconds(1) / UINT64_MAX); }, "");
+}
+#endif
