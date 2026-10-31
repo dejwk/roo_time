@@ -19,3 +19,5 @@ available. Use the [platform guide](../docs/platforms.md) for build setup.
 - [ElapsedTime](ElapsedTime/README.md): Measure a sensor operation with `Uptime` subtraction, then format the resulting
 
 - [PeriodicSampler](PeriodicSampler/README.md): Sample on a stable 100 ms cadence with `DelayUntil`, explicitly skipping missed
+
+- [CompactDebounce](CompactDebounce/README.md): Debounce two buttons using a four-byte `SmallTimestamp` per input and a
