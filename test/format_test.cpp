@@ -244,6 +244,22 @@ TEST(ParseDateTime, FractionsAndDefaults) {
   EXPECT_EQ(0u, output.micros());
 }
 
+// Verifies six-digit fractions leave subsequent numeric tokens for parsing.
+TEST(ParseDateTime, FractionsFollowedByNumericFieldsAndLiterals) {
+  for (uint32_t micros : {0u, 1u, 123456u, 999999u}) {
+    const DateTime original(2026, 10, 30, 12, 34, 56, micros, timezone::UTC);
+    for (const char* format : {"%F %T.%f%S", "%F %T.%f0"}) {
+      const std::string text = FormatDateTime(original, format);
+      DateTime parsed;
+      const ParseResult result =
+          ParseDateTime(text, format, timezone::UTC, &parsed);
+      ASSERT_EQ(TextStatus::kOk, result.status) << text;
+      EXPECT_EQ(text.size(), result.position);
+      EXPECT_EQ(original, parsed);
+    }
+  }
+}
+
 TEST(ParseDateTime, OffsetOverridesAndRepeatedFields) {
   DateTime output;
   for (const char* format : {"%F%z", "%F%:z"}) {
@@ -289,7 +305,7 @@ TEST(ParseDateTime, StrictValidationAndUnchangedDestination) {
       {"2024-01-01 24:00:00", "%F %T", TextStatus::kOutOfRange},
       {"2024-01-01 23:60:00", "%F %T", TextStatus::kOutOfRange},
       {"2024-01-01 23:59:60", "%F %T", TextStatus::kOutOfRange},
-      {"2024-01-01.1234567", "%F.%f", TextStatus::kOutOfRange},
+      {"2024-01-01.1234567", "%F.%f", TextStatus::kInvalidInput},
       {"2024-01-01.", "%F.%f", TextStatus::kInvalidInput},
       {"2024-01-01+24:00", "%F%:z", TextStatus::kOutOfRange},
       {"2024-01-01+12:60", "%F%:z", TextStatus::kOutOfRange},

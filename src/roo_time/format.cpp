@@ -236,7 +236,6 @@ class Parser {
           ++digits;
         }
         if (digits == 0) return failWith(TextStatus::kInvalidInput);
-        if (hasDigit()) return failWith(TextStatus::kOutOfRange);
         while (digits++ < 6) value *= 10;
         return setField(kMicros, value, start);
       }
