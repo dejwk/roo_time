@@ -23,3 +23,5 @@ available. Use the [platform guide](../docs/platforms.md) for build setup.
 - [CompactDebounce](CompactDebounce/README.md): Debounce two buttons using a four-byte `SmallTimestamp` per input and a
 
 - [Esp32NtpTime](Esp32NtpTime/README.md): Connect an ESP32 to Wi-Fi, wait for an SNTP synchronization notification,
+
+- [TimestampedMeasurements](TimestampedMeasurements/README.md): Record sensor values with a bounded ISO timestamp buffer, falling back to
