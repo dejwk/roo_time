@@ -25,3 +25,5 @@ available. Use the [platform guide](../docs/platforms.md) for build setup.
 - [Esp32NtpTime](Esp32NtpTime/README.md): Connect an ESP32 to Wi-Fi, wait for an SNTP synchronization notification,
 
 - [TimestampedMeasurements](TimestampedMeasurements/README.md): Record sensor values with a bounded ISO timestamp buffer, falling back to
+
+- [ScheduleSettings](ScheduleSettings/README.md): Import and export a date and local start time as device settings, validating
