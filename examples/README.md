@@ -27,3 +27,5 @@ available. Use the [platform guide](../docs/platforms.md) for build setup.
 - [TimestampedMeasurements](TimestampedMeasurements/README.md): Record sensor values with a bounded ISO timestamp buffer, falling back to
 
 - [ScheduleSettings](ScheduleSettings/README.md): Import and export a date and local start time as device settings, validating
+
+- [DailyLocalSchedule](DailyLocalSchedule/README.md): Plan a daily 02:30 local operation across seasonal clock changes: advance
