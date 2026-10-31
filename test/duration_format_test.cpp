@@ -183,5 +183,27 @@ TEST(DurationText, BoundedFormats) {
   EXPECT_STREQ("", text);
 }
 
+#if ROO_TIME_HAS_STD_STRING
+// Verifies allocating overloads share buffer semantics and keep default queries
+// clear.
+TEST(DurationText, StringConveniences) {
+  EXPECT_EQ("00:00:00.001", FormatDuration(Millis(1)));
+  EXPECT_EQ("1:25.001",
+            FormatDuration(Seconds(85) + Millis(1), kDurationCompactFormat));
+  EXPECT_EQ("-2562047788:00:54.775808", FormatDuration(Duration::Min()));
+  EXPECT_EQ("", FormatDuration(Seconds(1), "%Q"));
+  EXPECT_EQ("", FormatDuration(Seconds(-1), ""));
+  EXPECT_EQ("", FormatDuration(Seconds(1), static_cast<const char*>(nullptr)));
+  EXPECT_EQ(255u, FormatDuration(Hours(24), "%0255D").size());
+  EXPECT_EQ(TextStatus::kBufferTooSmall,
+            FormatDuration(Millis(1), nullptr, 0).status);
+#if ROO_TIME_HAS_STRING_VIEW
+  const char format[] = {'%', 'T', '%', 'F', 'x'};
+  EXPECT_EQ("0.001", FormatDuration(Millis(1), roo::string_view(format, 4)));
+  EXPECT_EQ("", FormatDuration(Seconds(-1), roo::string_view()));
+#endif
+}
+#endif
+
 }  // namespace
 }  // namespace roo_time

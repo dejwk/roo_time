@@ -118,6 +118,78 @@ inline FormatResult FormatDuration(Duration value, roo::string_view format,
 }
 #endif
 
+#if ROO_TIME_HAS_STD_STRING
+namespace internal {
+
+// Measures and writes a bounded duration format to an owning string.
+inline std::string FormatDurationString(Duration value, const char* format,
+                                        size_t format_length) {
+  const FormatResult measured =
+      FormatDuration(value, format, format_length, nullptr, 0);
+  if (measured.status != TextStatus::kBufferTooSmall || measured.size == 0)
+    return {};
+  std::string text(measured.size + 1, '\0');
+  const FormatResult written =
+      FormatDuration(value, format, format_length, &text[0], text.size());
+  if (written.status != TextStatus::kOk) return {};
+  text.resize(written.size);
+  return text;
+}
+
+}  // namespace internal
+
+/// Formats to std::string, returning empty on formatting error or empty output.
+/// Uses the default duration clock unless a NUL-terminated format is supplied.
+inline std::string FormatDuration(Duration value,
+                                  const char* format = kDurationClockFormat) {
+  return internal::FormatDurationString(
+      value, format, format != nullptr ? std::strlen(format) : 1);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded duration format view to std::string.
+inline std::string FormatDuration(Duration value, roo::string_view format) {
+  return internal::FormatDurationString(value, format.data(), format.size());
+}
+#endif
+#endif
+
+#if defined(ARDUINO)
+/// Formats a bounded duration format to Arduino String.
+/// Returns empty on formatting or allocation failure, or empty output.
+inline String FormatDurationArduino(Duration value, const char* format,
+                                    size_t format_length) {
+  char local[64];
+  const FormatResult formatted =
+      FormatDuration(value, format, format_length, local, sizeof(local));
+  if (formatted.status == TextStatus::kOk) return String(local);
+  if (formatted.status != TextStatus::kBufferTooSmall ||
+      formatted.size >= UINT_MAX)
+    return String();
+  char* buffer = static_cast<char*>(std::malloc(formatted.size + 1));
+  if (buffer == nullptr) return String();
+  const FormatResult written =
+      FormatDuration(value, format, format_length, buffer, formatted.size + 1);
+  String text = written.status == TextStatus::kOk ? String(buffer) : String();
+  std::free(buffer);
+  return text;
+}
+
+/// Formats to Arduino String using the default or a NUL-terminated format.
+inline String FormatDurationArduino(Duration value,
+                                    const char* format = kDurationClockFormat) {
+  return FormatDurationArduino(value, format,
+                               format != nullptr ? std::strlen(format) : 1);
+}
+
+#if ROO_TIME_HAS_STRING_VIEW
+/// Formats a bounded duration format view to Arduino String.
+inline String FormatDurationArduino(Duration value, roo::string_view format) {
+  return FormatDurationArduino(value, format.data(), format.size());
+}
+#endif
+#endif
+
 /// Formats a civil date without allocation. Supports %Y, %m, %d, %F, %% and
 /// literal separators; time/offset directives are invalid formats. An invalid
 /// date returns kInvalidInput and clears writable output. Buffer sizing,

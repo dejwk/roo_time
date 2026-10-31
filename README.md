@@ -141,6 +141,14 @@ receives the sign. The bounded-buffer and optional format-view overloads follow
 the existing formatting contracts: size queries use `nullptr, 0`, sizes exclude
 the NUL terminator, and output must not overlap the format.
 
+When standard strings are enabled, `FormatDuration(value)` returns an owning
+`std::string`; supply a format string or bounded format view to choose a layout.
+Arduino builds also provide `FormatDurationArduino` returning `String`, with
+default, NUL-terminated, bounded-range, and optional format-view forms.
+Formatting errors and empty output return empty strings; Arduino allocation
+failures also return empty. Buffer formatting remains usable with string and
+string-view support disabled.
+
 ## Compact timing values (prototype)
 
 `SmallDuration` and `SmallTimestamp` store millisecond timing values in four bytes

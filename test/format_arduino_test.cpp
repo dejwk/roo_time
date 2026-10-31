@@ -37,12 +37,41 @@ int main() {
     return 10;
   FixedTimeZone zone(UtcOffset(Minutes(345)));
   if (std::strcmp(FormatIsoDateTimeArduino(value.wallTime(), zone).c_str(),
-                  "2024-02-29T16:19:56.123456+05:45") != 0) return 12;
+                  "2024-02-29T16:19:56.123456+05:45") != 0)
+    return 12;
+  // Verifies duration adapters cover defaults, compact fractions, and long
+  // output.
+  if (std::strcmp(FormatDurationArduino(Millis(1)).c_str(), "00:00:00.001") !=
+      0)
+    return 13;
+  if (std::strcmp(
+          FormatDurationArduino(Micros(1), kDurationCompactFormat).c_str(),
+          "0.000001") != 0)
+    return 14;
+  if (std::strcmp(FormatDurationArduino(Seconds(1), long_format).c_str(),
+                  long_format) != 0)
+    return 15;
+  const char duration_format[] = {'%', 'T', '%', 'F'};
+  if (std::strcmp(FormatDurationArduino(Millis(1), duration_format,
+                                        sizeof(duration_format))
+                      .c_str(),
+                  "0.001") != 0)
+    return 16;
+  if (std::strcmp(FormatDurationArduino(Seconds(1), "%Q").c_str(), "") != 0 ||
+      std::strcmp(FormatDurationArduino(Seconds(1), nullptr).c_str(), "") !=
+          0 ||
+      std::strcmp(FormatDurationArduino(Seconds(-1), "").c_str(), "") != 0)
+    return 17;
   String::fail_allocation = true;
   if (std::strcmp(FormatDateTimeArduino(value, "%F").c_str(), "") != 0)
     return 7;
   if (std::strcmp(FormatDateTimeArduino(value, long_format).c_str(), "") != 0)
     return 8;
   if (std::strcmp(FormatIsoDateTimeArduino(value).c_str(), "") != 0) return 11;
+  // Verifies String allocation failures produce empty duration output.
+  if (std::strcmp(FormatDurationArduino(Millis(1)).c_str(), "") != 0 ||
+      std::strcmp(FormatDurationArduino(Seconds(1), long_format).c_str(), "") !=
+          0)
+    return 18;
   return 0;
 }

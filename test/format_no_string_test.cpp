@@ -93,5 +93,13 @@ int main() {
           TextStatus::kOk ||
       std::strcmp(buffer, "06:30:00.000000") != 0)
     return 10;
+  if (FormatDuration(Millis(1), kDurationCompactFormat, buffer, sizeof(buffer))
+              .status != TextStatus::kOk ||
+      std::strcmp(buffer, "0.001") != 0)
+    return 11;
+  if (FormatDuration(Duration::Min(), buffer, sizeof(buffer)).status !=
+          TextStatus::kOk ||
+      std::strcmp(buffer, "-2562047788:00:54.775808") != 0)
+    return 12;
   return CheckFractions() ? 0 : 6;
 }
