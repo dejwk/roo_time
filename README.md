@@ -207,8 +207,10 @@ On ESP32 or Linux, `SystemClock` reads the platform's system wall clock:
 ```cpp
 SystemClock my_clock;
 WallTime now = my_clock.now();
-WallTime tomorrow = now + Hours(24);
-int64_t seconds_since_epoch = now.sinceEpoch().inSeconds();
+if (now.isSet()) {
+  WallTime later = now + Hours(24);
+  int64_t seconds_since_epoch = now.sinceEpoch().inSecondsFloor();
+}
 ```
 
 Configure synchronization separately—for example, NTP on ESP32—and track whether
@@ -297,7 +299,9 @@ int hour = utc.hour();
 DayOfWeek weekday = utc.dayOfWeek();
 ```
 
-For the current local date and time, use `DateTime(my_clock.now(), local_offset)`.
+For the current local date and time, check `my_clock.now().isSet()` before
+constructing `DateTime` from that reading. Keep synchronization readiness
+separate from read validity.
 The object also exposes `year()`, `month()`, `day()`, `minute()`, `second()`, and
 `micros()`.
 
@@ -317,13 +321,11 @@ narrowing. Invalid dates, years outside 1-9999, or out-of-range time fields
 return false and leave the output unchanged. Constructors retain their
 existing precondition that supplied components are valid.
 
-Breaking change: `TimeZone` is now an abstract offset resolver, replacing the
-former alias for `UtcOffset`. Replace old fixed-offset `TimeZone` declarations
-with `UtcOffset`. Prefer `DateTime::utcOffset()` over the deprecated `timeZone()`
-accessor, and `UtcOffset::asDuration()` over the deprecated `offset()` accessor.
-`timezone::UTC` remains the zero fixed offset. Offsets support direct equality
-and ordering comparisons, plus `inMinutes()`, `inSeconds()`, `inMillis()`, and
-`inMicros()`.
+`UtcOffset` is a fixed offset; `TimeZone` is a resolver for a complete offset
+at a particular instant. Use `utcOffset()` on a `DateTime` and `asDuration()`
+on an offset. `timezone::UTC` is the zero fixed offset. Offsets support equality,
+ordering, and unit accessors. Migration notes for removed APIs are in
+[the release notes](RELEASE_NOTES.md).
 
 Offsets are fixed; they do not automatically follow daylight-saving changes.
 For seasonal offsets, see [time zones](#time-zones-and-seasonal-rules).
@@ -500,9 +502,10 @@ void setup() {
 
 void loop() {
   WallTime now = my_clock.now();
-  WallTime tomorrow = now + Hours(24);
-  int64_t seconds_since_epoch = now.sinceEpoch().inSeconds();
-  // ...
+  if (!now.isSet()) return;  // Handle the driver's read failure first.
+  WallTime later = now + Hours(24);
+  int64_t seconds_since_epoch = now.sinceEpoch().inSecondsFloor();
+  // Use UTC values only after separately establishing clock readiness.
 }
 ```
 
@@ -598,6 +601,9 @@ For standalone Pico SDK builds, compile `src/roo_time/duration.cpp`,
 `src/roo_time/civil_day.cpp`, `src/roo_time/internal/calendar.cpp`,
 `src/roo_time/wall_time.cpp`, `src/roo_time/timezone.cpp`, and
 `src/uptime_now.cpp`, add `src` to the include path, and link `pico_time`.
+Add `src/roo_time/format.cpp` when using text formatting or parsing. Buffer-only
+builds can disable the optional string/view overloads; view overloads also need
+`roo_backport` on the include path.
 The SDK supplies `PICO_ON_DEVICE`; compatible RP2040 Arduino cores are detected
 through `ARDUINO_ARCH_RP2040` and availability of `pico/time.h`. Pico waits use
 `sleep_us`, allowing the SDK to manage lower-power waits; its normal interrupt
@@ -618,8 +624,8 @@ and timer configuration requirements apply.
   sign. Thus large values do not round-trip through components. `FromComponents`
   requires normalized fields: hours 0–23, minutes/seconds 0–59, microseconds
   0–999999, and days within the 26-bit field's range.
-- The supported calendar contract is Gregorian years 1–9999. Component inputs
-  must describe a valid date, with hours 0–23, minutes/seconds 0–59 and microseconds
+- The supported calendar contract is Gregorian years 1–9999. Unchecked
+  `DateTime` constructors require components describing a valid date, with hours 0–23, minutes/seconds 0–59 and microseconds
   0–999999. These preconditions are unchecked: invalid input is not an error value
   or a request for normalization. Converting wall time must produce a local date
   in this range after applying the offset. The timestamp storage range is much
@@ -628,11 +634,10 @@ and timer configuration requirements apply.
   Supply whole minutes within the signed 16-bit minute range. Construction
   truncates sub-minute offsets toward zero and does not validate the range.
 - Wall time follows Unix/POSIX time without distinct leap seconds. `DateTime()`
-  and `WallTime()` continue to represent the Unix epoch. Use `WallTime::Unset()`
-  for an explicit unset value. Prefer `WallTime::Epoch()` or
-  `WallTime::SinceEpoch(duration)` over the deprecated constructors. `DateTime`
-  equality compares both the instant and offset; compare `wallTime()` when only
-  the instant matters.
+  represents the Unix epoch in UTC. `WallTime` has no public default constructor:
+  explicitly use `WallTime::Unset()`, `WallTime::Epoch()`, or
+  `WallTime::SinceEpoch(duration)`. `DateTime` equality compares both the instant
+  and offset; compare `wallTime()` when only the instant matters.
 
 `tmStruct()` exports local calendar fields with a zero-based `tm_yday` and
 `tm_isdst = -1`. It does not carry the fixed UTC offset. Passing it to `mktime`
@@ -677,17 +682,22 @@ rule updates are not provided.
 
 ### Rounding semantics
 
-`Duration` narrowing conversions expose three rounding modes:
+Use the rounding direction that matches the task. In particular, converting a
+negative timestamp to Unix seconds normally needs floor, while splitting a
+signed elapsed amount into whole units often needs truncation toward zero.
 
-- `inXxx()` and `inXxxRoundedDown()` round **toward zero**.
-- `inXxxRoundedUp()` rounds **away from zero**.
-- `inXxxRoundedNearest()` rounds to nearest, with ties (exact half) **away from zero**.
+| Millisecond conversion | `Micros(1501)` | `Micros(-1501)` |
+| --- | --- | --- |
+| `inMillis()` / `inMillisRoundedDown()` (toward zero) | 1 | -1 |
+| `inMillisRoundedUp()` (away from zero) | 2 | -2 |
+| `inMillisFloor()` (toward negative infinity) | 1 | -2 |
+| `inMillisCeiling()` (toward positive infinity) | 2 | -1 |
+| `inMillisRoundedNearest()` (nearest, ties away from zero) | 2 | -2 |
 
-Examples for milliseconds:
-
-- `Micros(1501).inMillisRoundedDown()` is `1`, `Micros(-1501).inMillisRoundedDown()` is `-1`.
-- `Micros(1501).inMillisRoundedUp()` is `2`, `Micros(-1501).inMillisRoundedUp()` is `-2`.
-- `Micros(500).inMillisRoundedNearest()` is `1`, `Micros(-500).inMillisRoundedNearest()` is `-1`.
+The same methods exist for seconds, minutes, and hours. At an exact half unit,
+`Micros(500).inMillisRoundedNearest()` is 1 and the negative equivalent is -1.
+`RoundedDown` and `RoundedUp` are legacy names for magnitude rounding; they do
+not mean mathematical floor and ceiling for negative values.
 
 ### Time zones and seasonal rules
 

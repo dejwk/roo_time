@@ -221,8 +221,10 @@ constexpr UtcOffset UTC = UtcOffset(Micros(0));
 
 /// Represents wall time decomposed into date/time in a specific time zone.
 ///
-/// Supports valid Gregorian dates in years 1-9999; inputs are not validated or
-/// normalized. Wall-time conversion must also yield a local date in that range.
+/// Supports Gregorian dates in years 1-9999. Constructors require valid fields
+/// and do not normalize them; TryFromComponents validates external input and
+/// preserves its output on failure. Wall-time conversion must yield a local
+/// date in the supported range.
 /// Does not account for leap seconds.
 class DateTime {
  public:
