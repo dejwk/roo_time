@@ -158,3 +158,13 @@ bazel run //examples/ElapsedTime:ElapsedTime --config=roo_testing_arduino_esp32
 Arduino examples are Arduino-only targets; core library tests also run under
 ESP-IDF. Building the host examples does not flash a board. See individual
 example notes for credentials, hardware, and emulator limitations.
+
+### Pico host frontend selection
+
+Formatting targets depend on roo_testing's stable `:arduino` entry point so
+Arduino String support follows the selected frontend, including Arduino-Pico.
+Pico SDK-only builds keep the portable formatting path. Coordinated local
+roo_testing and roo_threads overrides are required until matching releases are
+published. The shared emulated uptime/delay implementation is used by both
+Pico profiles; normal and AddressSanitizer client validation is provided by
+roo_testing's `test/pico_clients/verify_clients.py`.

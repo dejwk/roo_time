@@ -23,7 +23,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [":core", "@roo_backport"] + select({
         "@roo_testing//roo_testing/platforms:is_arduino": [
-            "@roo_testing//roo_testing/frameworks/arduino-esp32/cores/esp32",
+            "@roo_testing//:arduino",
         ],
         "//conditions:default": [],
     }),
@@ -37,7 +37,7 @@ cc_library(
     copts = ["-DROO_TIME_HAS_STRFTIME=0"],
     deps = [":core", "@roo_backport"] + select({
         "@roo_testing//roo_testing/platforms:is_arduino": [
-            "@roo_testing//roo_testing/frameworks/arduino-esp32/cores/esp32",
+            "@roo_testing//:arduino",
         ],
         "//conditions:default": [],
     }),
