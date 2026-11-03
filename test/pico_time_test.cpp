@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 #include "roo_time.h"
+#undef ARDUINO_ARCH_RP2040
+#undef PICO_ON_DEVICE
 #undef ROO_TESTING
 #undef ESP32
 #undef ESP_PLATFORM
@@ -15,12 +17,17 @@ namespace {
 uint64_t counter = 0;
 uint64_t waited = 0;
 unsigned calls = 0;
-}
+}  // namespace
 uint64_t time_us_64() { return counter; }
-void sleep_us(uint64_t micros) { counter += micros; waited = micros; ++calls; }
+void sleep_us(uint64_t micros) {
+  counter += micros;
+  waited = micros;
+  ++calls;
+}
 TEST(PicoTime, NativeCounterAndLongSleep) {
   using namespace roo_time;
-  counter = 3ULL << 32; // No earlier samples; already past multiple 32-bit wraps.
+  counter =
+      3ULL << 32;  // No earlier samples; already past multiple 32-bit wraps.
   EXPECT_EQ(counter, static_cast<uint64_t>(Uptime::Now().inMicros()));
   auto start = Uptime::Now();
   counter += 5ULL << 32;

@@ -1,3 +1,11 @@
+# roo_time 2.1.0
+
+- Prepare the checked TimeOfDay, DateTime construction, duration/uptime formatting and timezone-resolution APIs accumulated since 2.0.2 for release.
+- Select matching Arduino-Pico dependencies for formatting and support the canonical nine-profile matrix with roo_testing 2.5.0.
+- Supply the formatter APIs required by roo_logging 1.6.0; validate consumers with the coordinated Pico I/O workspace.
+
+---
+
 # roo_time 2.0.2
 
 - Compile timezone calendar-bound helpers only in debug builds, avoiding unused-function warnings when assertions are disabled.

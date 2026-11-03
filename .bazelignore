@@ -1,0 +1,4 @@
+bazel-roo_time
+bazel-out
+bazel-bin
+bazel-testlogs

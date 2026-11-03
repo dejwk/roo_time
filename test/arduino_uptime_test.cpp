@@ -2,6 +2,8 @@
 #include "gtest/gtest.h"
 #include "roo_time.h"
 
+#undef ARDUINO_ARCH_RP2040
+#undef PICO_ON_DEVICE
 #undef ROO_TESTING
 #undef ESP32
 #undef ESP_PLATFORM
@@ -14,8 +16,11 @@ namespace {
 uint32_t counter = 0;
 uint32_t millis_counter = 0;
 unsigned micros_calls = 0;
+}  // namespace
+uint32_t micros() {
+  ++micros_calls;
+  return counter;
 }
-uint32_t micros() { ++micros_calls; return counter; }
 uint32_t millis() { return millis_counter; }
 void delay(uint32_t millis) { counter += millis * 1000; }
 void delayMicroseconds(uint32_t micros) { counter += micros; }

@@ -1,8 +1,11 @@
 #include <limits>
+
+#include "freertos/FreeRTOS.h"
 #include "gtest/gtest.h"
 #include "roo_time.h"
-#include "freertos/FreeRTOS.h"
 
+#undef ARDUINO_ARCH_RP2040
+#undef PICO_ON_DEVICE
 #undef ROO_TESTING
 #undef ESP32
 #undef ESP_PLATFORM
@@ -28,7 +31,7 @@ void RecordDelay(uint64_t micros) {
   ++delay_calls;
   if (micros > largest_delay) largest_delay = micros;
 }
-}
+}  // namespace
 // Each clock access models one microsecond of execution, so a zero-tick yield
 // still allows time to advance. Coarse waits model waking near a tick boundary.
 extern "C" int64_t esp_timer_get_time() { return counter++; }
@@ -72,8 +75,8 @@ TEST(Delay, NonPositiveDurationsDoNotReachBackend) {
 TEST(Delay, WaitsThroughTickRounding) {
   using namespace roo_time;
   largest_delay = 0;
-  for (int64_t micros : {1LL, 1999LL, 2000LL, 5000LL, 10000LL, 11001LL,
-                         3000001LL}) {
+  for (int64_t micros :
+       {1LL, 1999LL, 2000LL, 5000LL, 10000LL, 11001LL, 3000001LL}) {
     const auto start = Uptime::Now();
     Delay(Micros(micros));
     EXPECT_GE(Uptime::Now() - start, Micros(micros));
