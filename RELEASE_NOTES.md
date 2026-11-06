@@ -1,8 +1,13 @@
 # roo_time 2.1.0
 
-- Prepare the checked TimeOfDay, DateTime construction, duration/uptime formatting and timezone-resolution APIs accumulated since 2.0.2 for release.
-- Select matching Arduino-Pico dependencies for formatting and support the canonical nine-profile matrix with roo_testing 2.5.0.
-- Supply the formatter APIs required by roo_logging 1.6.0; validate consumers with the coordinated Pico I/O workspace.
+- Added checked `TimeOfDay` values with microsecond precision, allocation-free formatting/parsing, and `DateTime` composition. Added `DateTime::TryFromComponents()` to validate fields while preserving output on failure.
+- Added integer duration division, duration ratios and remainders, and signed calendar-day differences.
+- Added allocation-free duration and uptime formatting with named layouts, configurable precision, explicit `%+` sign placement, and standard/Arduino string adapters. Default uptime output is `S+HH:MM:SS.ffffff`; the new formatter APIs support `roo_logging` 1.6.0.
+- Added checked local-to-UTC resolution for fixed and recurring DST zones, reporting unique, ambiguous, nonexistent, invalid, out-of-range, or unsupported results without silently choosing a DST policy.
+- Fixed fractional-second parsing when six-digit fractions precede numeric fields or digit literals.
+- Fixed formatting dependencies to follow the selected Arduino frontend, including Arduino-Pico. Upgraded `roo_testing` from 2.4.0 to 2.5.0 and expanded normal/AddressSanitizer coverage to nine ESP32 and RP2040 profiles, with consumer validation in the coordinated Pico I/O workspace.
+- Added tested examples for periodic sampling, compact debounce, timestamps with uptime fallback, atomic schedule settings, and daily scheduling with explicit DST policies. Improved the ESP32 NTP example with bounded Wi-Fi waits and confirmed synchronization through the ordinary SNTP path.
+- Reorganized documentation into focused task guides, documented emulator workflows, and added CI compilation of README snippets and execution of example sketches.
 
 ---
 
