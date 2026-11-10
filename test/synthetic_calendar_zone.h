@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ROO_TIME_TEST_SYNTHETIC_CALENDAR_ZONE_H_
+#define ROO_TIME_TEST_SYNTHETIC_CALENDAR_ZONE_H_
 
 #include <cstddef>
 
@@ -45,8 +46,9 @@ class SyntheticCalendarZone : public TimeZone {
   CalendarStatus offsetSpanAt(WallTime instant,
                               OffsetSpan& out) const override {
     if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
-    if (instant < range_.begin || instant >= range_.end)
+    if (instant < range_.begin || instant >= range_.end) {
       return CalendarStatus::kOutOfRange;
+    }
     out = {range_, initial_};
     for (size_t i = 0; i < change_count_; ++i) {
       if (instant < changes_[i].instant) {
@@ -63,8 +65,9 @@ class SyntheticCalendarZone : public TimeZone {
   LocalTimeResolution resolveLocal(CivilDay date,
                                    TimeOfDay time) const override {
     DateTime local;
-    if (!DateTime::TryFromComponents(date, time, timezone::UTC, local))
+    if (!DateTime::TryFromComponents(date, time, timezone::UTC, local)) {
       return {LocalTimeStatus::kInvalidInput};
+    }
     LocalTimeResolution result{LocalTimeStatus::kNonexistent};
     WallTime begin = range_.begin;
     UtcOffset offset = initial_;
@@ -97,3 +100,5 @@ class SyntheticCalendarZone : public TimeZone {
 
 }  // namespace testing
 }  // namespace roo_time
+
+#endif  // ROO_TIME_TEST_SYNTHETIC_CALENDAR_ZONE_H_

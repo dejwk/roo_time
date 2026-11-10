@@ -1,11 +1,15 @@
 #include "roo_time/calendar_interval.h"
 
+#include <cstdint>
+
 #include "roo_time/internal/calendar.h"
+#include "roo_time/time_of_day.h"
 
 namespace roo_time {
 namespace {
 
 constexpr int64_t kDayMicros = 86400000000LL;
+
 // UTC coordinates for 0001-01-01 and the exclusive end of 9999-12-31.
 constexpr int64_t kCalendarBegin = -62135596800000000LL;
 constexpr int64_t kCalendarEnd = 253402300800000000LL;
@@ -58,7 +62,7 @@ int64_t FirstBoundary(int64_t local, CalendarInterval interval) {
       internal::CivilFromDays(static_cast<int32_t>(FloorDiv(local, kDayMicros)),
                               &year, &month, &day);
       const int index = interval.unit == CalendarUnit::kMonth
-                            ? int{year} * 12 + month - 1
+                            ? static_cast<int>(year) * 12 + month - 1
                             : year;
       int aligned = index / interval.step * interval.step;
       // Year zero is an alignment coordinate, never a converted calendar date.
@@ -66,14 +70,15 @@ int64_t FirstBoundary(int64_t local, CalendarInterval interval) {
       int m = interval.unit == CalendarUnit::kMonth ? aligned % 12 + 1 : 1;
       if (y >= 1) {
         const int64_t first =
-            int64_t{internal::DaysFromCivil(y, m, 1)} * kDayMicros;
+            static_cast<int64_t>(internal::DaysFromCivil(y, m, 1)) * kDayMicros;
         if (first >= local) return first;
       }
       aligned += interval.step;
       y = interval.unit == CalendarUnit::kMonth ? aligned / 12 : aligned;
       m = interval.unit == CalendarUnit::kMonth ? aligned % 12 + 1 : 1;
       if (y > 9999) return kCalendarEnd;
-      return int64_t{internal::DaysFromCivil(y, m, 1)} * kDayMicros;
+      return static_cast<int64_t>(internal::DaysFromCivil(y, m, 1)) *
+             kDayMicros;
     }
     default:
       return kCalendarEnd;  // Rejected before traversal.
@@ -92,12 +97,13 @@ CalendarStatus Classify(const TimeZone& zone, int64_t local, WallTime instant,
   uint8_t month;
   uint8_t day;
   internal::CivilFromDays(epoch_day, &year, &month, &day);
-  const LocalTimeResolution reverse =
-      zone.resolveLocal(CivilDay::FromYmd(year, month, day),
-                        TimeOfDay::FromSinceMidnight(
-                            Micros(local - int64_t{epoch_day} * kDayMicros)));
-  if (reverse.status == LocalTimeStatus::kUnsupported)
+  const LocalTimeResolution reverse = zone.resolveLocal(
+      CivilDay::FromYmd(year, month, day),
+      TimeOfDay::FromSinceMidnight(
+          Micros(local - static_cast<int64_t>(epoch_day) * kDayMicros)));
+  if (reverse.status == LocalTimeStatus::kUnsupported) {
     return CalendarStatus::kUnsupported;
+  }
   if (reverse.status == LocalTimeStatus::kUnique && reverse.first == instant &&
       !reverse.second.isSet()) {
     occurrence = LocalOccurrence::kUnique;
@@ -126,8 +132,9 @@ CalendarStatus VisitSpan(TimeRange range, UtcOffset offset,
   const int64_t shift = offset.inMicros();
   const int64_t begin = range.begin.sinceEpoch().inMicros();
   const int64_t end = range.end.sinceEpoch().inMicros();
-  if (begin < kCalendarBegin - shift || end > kCalendarEnd - shift)
+  if (begin < kCalendarBegin - shift || end > kCalendarEnd - shift) {
     return CalendarStatus::kProviderError;
+  }
   const int64_t local_end = end + shift;
   int64_t local = FirstBoundary(begin + shift, interval);
   while (local < local_end) {
@@ -182,22 +189,26 @@ CalendarStatus EnumerateCalendarBoundaries(
     TimeRange range, const TimeZone& zone, CalendarInterval interval,
     uint32_t& work_remaining, BoundaryVisitor visitor, void* context) {
   if (!range.begin.isSet() || !range.end.isSet() || range.end < range.begin ||
-      !interval.isValid() || visitor == nullptr)
+      !interval.isValid() || visitor == nullptr) {
     return CalendarStatus::kInvalidArgument;
+  }
   TimeRange supported{WallTime::Unset(), WallTime::Unset()};
   CalendarStatus status = zone.calendarRange(supported);
-  if (status != CalendarStatus::kOk)
+  if (status != CalendarStatus::kOk) {
     return status == CalendarStatus::kUnsupported
                ? status
                : CalendarStatus::kProviderError;
+  }
   if (!supported.begin.isSet() || !supported.end.isSet() ||
       supported.begin >= supported.end ||
       supported.begin.sinceEpoch().inMicros() < kCalendarBegin ||
-      supported.end.sinceEpoch().inMicros() > kCalendarEnd)
+      supported.end.sinceEpoch().inMicros() > kCalendarEnd) {
     return CalendarStatus::kProviderError;
+  }
   if (range.begin == range.end) return CalendarStatus::kOk;
-  if (range.begin < supported.begin || range.end > supported.end)
+  if (range.begin < supported.begin || range.end > supported.end) {
     return CalendarStatus::kOutOfRange;
+  }
 
   WallTime cursor = range.begin;
   UtcOffset previous;
@@ -207,16 +218,18 @@ CalendarStatus EnumerateCalendarBoundaries(
     --work_remaining;
     OffsetSpan span{{WallTime::Unset(), WallTime::Unset()}, timezone::UTC};
     status = zone.offsetSpanAt(cursor, span);
-    if (status != CalendarStatus::kOk)
+    if (status != CalendarStatus::kOk) {
       return status == CalendarStatus::kUnsupported
                  ? status
                  : CalendarStatus::kProviderError;
+    }
     if (!span.range.begin.isSet() || !span.range.end.isSet() ||
         span.range.begin < supported.begin || span.range.end > supported.end ||
         span.range.begin > cursor || span.range.end <= cursor ||
         (!first_span &&
-         (span.range.begin != cursor || span.offset == previous)))
+         (span.range.begin != cursor || span.offset == previous))) {
       return CalendarStatus::kProviderError;
+    }
     const WallTime end =
         span.range.end < range.end ? span.range.end : range.end;
     status = VisitSpan({cursor, end}, span.offset, zone, interval,

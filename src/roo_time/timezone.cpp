@@ -22,8 +22,9 @@ WallTime TransitionAt(const AnnualTransition& t, int year, UtcOffset base,
       DateTime(year, t.date.month(), day, timezone::UTC).wallTime();
   instant += Minutes(t.minutes_since_midnight);
   if (t.basis != TransitionTimeBasis::kUtc) instant -= base.asDuration();
-  if (t.basis == TransitionTimeBasis::kAdjustedLocal)
+  if (t.basis == TransitionTimeBasis::kAdjustedLocal) {
     instant -= adjustment.asDuration();
+  }
   return instant;
 }
 
@@ -60,24 +61,27 @@ CalendarStatus FixedTimeZone::offsetSpanAt(WallTime instant,
                                            OffsetSpan& out) const {
   if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
   const TimeRange range = SafeCalendarRange(offset_, offset_);
-  if (instant < range.begin || instant >= range.end)
+  if (instant < range.begin || instant >= range.end) {
     return CalendarStatus::kOutOfRange;
+  }
   out = {range, offset_};
   return CalendarStatus::kOk;
 }
 
 LocalTimeResolution TimeZone::resolveLocal(CivilDay date,
                                            TimeOfDay time) const {
-  if (!date.isValid() || !time.isValid())
+  if (!date.isValid() || !time.isValid()) {
     return {LocalTimeStatus::kInvalidInput};
+  }
   return {LocalTimeStatus::kUnsupported};
 }
 
 LocalTimeResolution FixedTimeZone::resolveLocal(CivilDay date,
                                                 TimeOfDay time) const {
   DateTime local;
-  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local))
+  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local)) {
     return {LocalTimeStatus::kInvalidInput};
+  }
   return {LocalTimeStatus::kUnique, local.wallTime() - offset_.asDuration()};
 }
 
@@ -158,8 +162,9 @@ CalendarStatus RecurringTimeZone::offsetSpanAt(WallTime instant,
   if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
   TimeRange range{WallTime::Unset(), WallTime::Unset()};
   calendarRange(range);
-  if (instant < range.begin || instant >= range.end)
+  if (instant < range.begin || instant >= range.end) {
     return CalendarStatus::kOutOfRange;
+  }
   if (rules_.adjustment.inMinutes() == 0) {
     out = {range, base_offset_};
     return CalendarStatus::kOk;
@@ -175,10 +180,12 @@ CalendarStatus RecurringTimeZone::offsetSpanAt(WallTime instant,
          {rules_.first_transition, rules_.second_transition}) {
       const WallTime transition =
           TransitionAt(rule, y, base_offset_, rules_.adjustment);
-      if (transition <= instant && transition > range.begin)
+      if (transition <= instant && transition > range.begin) {
         range.begin = transition;
-      if (transition > instant && transition < range.end)
+      }
+      if (transition > instant && transition < range.end) {
         range.end = transition;
+      }
     }
   }
   out = {range, resolveOffset(instant)};
@@ -188,8 +195,9 @@ CalendarStatus RecurringTimeZone::offsetSpanAt(WallTime instant,
 LocalTimeResolution RecurringTimeZone::resolveLocal(CivilDay date,
                                                     TimeOfDay time) const {
   DateTime local;
-  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local))
+  if (!DateTime::TryFromComponents(date, time, timezone::UTC, local)) {
     return {LocalTimeStatus::kInvalidInput};
+  }
   const UtcOffset offsets[] = {
       base_offset_,
       UtcOffset(base_offset_.asDuration() + rules_.adjustment.asDuration())};
@@ -217,15 +225,17 @@ LocalTimeResolution RecurringTimeZone::resolveLocal(CivilDay date,
       result.status = LocalTimeStatus::kAmbiguous;
     }
   }
-  if (!result.first.isSet() && out_of_range)
+  if (!result.first.isSet() && out_of_range) {
     result.status = LocalTimeStatus::kOutOfRange;
+  }
   return result;
 }
 
 LocalTimeResolution ResolveLocal(CivilDay date, TimeOfDay time,
                                  const TimeZone& zone) {
-  if (!date.isValid() || !time.isValid())
+  if (!date.isValid() || !time.isValid()) {
     return {LocalTimeStatus::kInvalidInput};
+  }
   return zone.resolveLocal(date, time);
 }
 

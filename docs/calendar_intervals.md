@@ -12,11 +12,22 @@ the requested window contains only one of them.
 ```cpp
 #include "roo_time/calendar_interval.h"
 
-using namespace roo_time;
+using roo_time::CalendarBoundary;
+using roo_time::CalendarStatus;
+using roo_time::CalendarUnit;
+using roo_time::DateTime;
+using roo_time::EnumerateCalendarBoundaries;
+using roo_time::Hours;
+using roo_time::LocalOccurrence;
+using roo_time::RecurringTimeZone;
+using roo_time::TimeRange;
+using roo_time::UtcOffset;
+
+namespace {
 
 struct Summary {
-  unsigned count = 0;
-  unsigned repeated = 0;
+  int count = 0;
+  int repeated = 0;
 };
 
 bool VisitBoundary(void* context, const CalendarBoundary& boundary) {
@@ -28,15 +39,17 @@ bool VisitBoundary(void* context, const CalendarBoundary& boundary) {
   return true;
 }
 
+}  // namespace
+
 int main() {
-  RecurringTimeZone zone(UtcOffset(Hours(1)), rules::EuSummerTime());
-  TimeRange range{DateTime(2026, 10, 25, timezone::UTC).wallTime(),
-                  DateTime(2026, 10, 26, timezone::UTC).wallTime()};
+  RecurringTimeZone zone(UtcOffset(Hours(1)), roo_time::rules::EuSummerTime());
+  TimeRange range{DateTime(2026, 10, 25, roo_time::timezone::UTC).wallTime(),
+                  DateTime(2026, 10, 26, roo_time::timezone::UTC).wallTime()};
   uint32_t work_remaining = 4096;
   Summary summary;
-  CalendarStatus status = EnumerateCalendarBoundaries(
-      range, zone, {CalendarUnit::kHour, 1}, work_remaining, VisitBoundary,
-      &summary);
+  CalendarStatus status =
+      EnumerateCalendarBoundaries(range, zone, {CalendarUnit::kHour, 1},
+                                  work_remaining, VisitBoundary, &summary);
   return status == CalendarStatus::kOk && summary.count == 24 &&
                  summary.repeated == 2
              ? 0

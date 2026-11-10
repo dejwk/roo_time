@@ -1,6 +1,11 @@
-#pragma once
+#ifndef ROO_TIME_CALENDAR_INTERVAL_H_
+#define ROO_TIME_CALENDAR_INTERVAL_H_
 
+#include <cstdint>
+
+#include "roo_time/civil_day.h"
 #include "roo_time/timezone.h"
+#include "roo_time/wall_time.h"
 
 namespace roo_time {
 
@@ -75,3 +80,5 @@ CalendarStatus EnumerateCalendarBoundaries(
     uint32_t& work_remaining, BoundaryVisitor visitor, void* context);
 
 }  // namespace roo_time
+
+#endif  // ROO_TIME_CALENDAR_INTERVAL_H_

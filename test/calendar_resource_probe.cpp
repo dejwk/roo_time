@@ -5,19 +5,19 @@
 #include "roo_time/timezone.h"
 #endif
 
+namespace roo_time {
 namespace {
 volatile int result;
 
 #if defined(ROO_TIME_CALENDAR_ENUMERATION)
-bool Count(void*, const roo_time::CalendarBoundary& boundary) {
+bool Count(void*, const CalendarBoundary& boundary) {
   result += boundary.offset.inMinutes();
   return true;
 }
 #endif
-}  // namespace
 
-int main() {
-  using namespace roo_time;
+// Runs the same forward-only or calendar consumer for linked-size comparisons.
+int RunResourceProbe() {
 #if defined(ROO_TIME_CALENDAR_RECURRING)
   RecurringTimeZone zone(UtcOffset(Hours(1)), rules::EuSummerTime());
 #else
@@ -37,3 +37,8 @@ int main() {
 #endif
   return result;
 }
+
+}  // namespace
+}  // namespace roo_time
+
+int main() { return roo_time::RunResourceProbe(); }

@@ -102,8 +102,9 @@ class BrokenZone : public TimeZone {
     if (fault_ == Fault::kEmptyRange) out.end = out.begin;
     if (fault_ == Fault::kUnsetRange) out.begin = WallTime::Unset();
     if (fault_ == Fault::kReversedRange) out.end = out.begin - Micros(1);
-    if (fault_ == Fault::kExtremeRange)
+    if (fault_ == Fault::kExtremeRange) {
       out.begin = WallTime::SinceEpoch(Micros(INT64_MIN + 1));
+    }
     return fault_ == Fault::kRangeStopped ? CalendarStatus::kStopped
                                           : CalendarStatus::kOk;
   }
@@ -115,18 +116,20 @@ class BrokenZone : public TimeZone {
     out = {{WallTime::Epoch(), WallTime::Epoch() + Hours(4)}, timezone::UTC};
     if (fault_ == Fault::kSpanUnset) out.range.end = WallTime::Unset();
     if (fault_ == Fault::kNoProgress) out.range.end = instant;
-    if (fault_ == Fault::kSpanAfterCursor)
+    if (fault_ == Fault::kSpanAfterCursor) {
       out.range.begin = instant + Micros(1);
+    }
     if (fault_ == Fault::kSpanOutsideRange) out.range.begin -= Micros(1);
     if (fault_ == Fault::kWrongOffset) out.offset = UtcOffset(Hours(1));
     if (fault_ == Fault::kAdjacentEqual || fault_ == Fault::kOverlap) {
       if (spans == 1) {
         out.range.end = WallTime::Epoch() + Hours(1);
       } else {
-        if (fault_ == Fault::kAdjacentEqual)
+        if (fault_ == Fault::kAdjacentEqual) {
           out.range.begin = instant;
-        else
+        } else {
           out.offset = UtcOffset(Hours(1));
+        }
       }
     }
     if (fault_ == Fault::kSpanStopped) return CalendarStatus::kStopped;

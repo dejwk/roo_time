@@ -54,8 +54,9 @@ struct Accumulator {
 
 bool Accumulate(void* context, const CalendarBoundary& boundary) {
   Accumulator& result = *static_cast<Accumulator*>(context);
-  if (result.previous.isSet() && result.previous >= boundary.instant)
+  if (result.previous.isSet() && result.previous >= boundary.instant) {
     result.ordered = false;
+  }
   result.previous = boundary.instant;
   ++result.count;
   return true;
@@ -74,21 +75,21 @@ bool CheckZone(const TimeZone& zone, TimeRange range) {
     uint32_t work = 4096;
     TimeRange request = range;
     if (interval.unit == CalendarUnit::kMillisecond ||
-        interval.unit == CalendarUnit::kSecond)
+        interval.unit == CalendarUnit::kSecond) {
       request.end = request.begin + Seconds(5);
+    }
     if (EnumerateCalendarBoundaries(request, zone, interval, work, Accumulate,
                                     &result) != CalendarStatus::kOk ||
-        !result.ordered)
+        !result.ordered) {
       return false;
+    }
   }
   return true;
 }
 
-}  // namespace
-}  // namespace roo_time
-
-int main() {
-  using namespace roo_time;
+// Exercises built-in and synthetic providers while heap allocation is
+// forbidden.
+int RunAllocationTest() {
   allocation_forbidden = true;
   const WallTime begin = DateTime(2026, 10, 25, timezone::UTC).wallTime();
   const TimeRange range{begin, begin + Hours(48)};
@@ -101,7 +102,13 @@ int main() {
       {begin + Minutes(287), timezone::UTC}};
   testing::SyntheticCalendarZone synthetic(range, timezone::UTC, changes, 4);
   if (!CheckZone(fixed, range) || !CheckZone(recurring, range) ||
-      !CheckZone(synthetic, range))
+      !CheckZone(synthetic, range)) {
     return 1;
+  }
   return 0;
 }
+
+}  // namespace
+}  // namespace roo_time
+
+int main() { return roo_time::RunAllocationTest(); }

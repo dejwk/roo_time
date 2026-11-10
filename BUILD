@@ -369,8 +369,14 @@ cc_library(
 cc_test(
     name = "calendar_interval_test",
     size = "small",
-    srcs = ["test/calendar_interval_test.cpp", "test/synthetic_calendar_zone.h"],
-    deps = [":calendar_intervals", "@googletest//:gtest_main"],
+    srcs = [
+        "test/calendar_interval_test.cpp",
+        "test/synthetic_calendar_zone.h",
+    ],
+    deps = [
+        ":calendar_intervals",
+        "@googletest//:gtest_main",
+    ],
 )
 
 # Compile and execute the complete example directly from the calendar guide.
@@ -378,8 +384,8 @@ genrule(
     name = "calendar_interval_example_source",
     srcs = ["docs/calendar_intervals.md"],
     outs = ["calendar_interval_example.cpp"],
-    tools = ["test/calendar_interval_example.awk"],
     cmd = "awk -f $(location test/calendar_interval_example.awk) $(location docs/calendar_intervals.md) > $@",
+    tools = ["test/calendar_interval_example.awk"],
 )
 
 cc_test(
@@ -394,22 +400,33 @@ cc_test(
     size = "small",
     srcs = [
         "test/calendar_provider_test.cpp",
-        "test/synthetic_calendar_zone.h",
         "test/stubs/AceTime.h",
+        "test/synthetic_calendar_zone.h",
     ],
     includes = ["test/stubs"],
-    deps = [":calendar_intervals", ":acetime", "@googletest//:gtest_main"],
+    deps = [
+        ":acetime",
+        ":calendar_intervals",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(
     name = "calendar_no_allocation_test",
     size = "small",
-    linkstatic = True,
     srcs = [
         "test/calendar_no_allocation_test.cpp",
         "test/synthetic_calendar_zone.h",
     ],
-    copts = ["-fno-exceptions", "-fno-rtti"],
-    linkopts = ["-Wl,--wrap=malloc", "-Wl,--wrap=calloc", "-Wl,--wrap=realloc"],
+    copts = [
+        "-fno-exceptions",
+        "-fno-rtti",
+    ],
+    linkopts = [
+        "-Wl,--wrap=malloc",
+        "-Wl,--wrap=calloc",
+        "-Wl,--wrap=realloc",
+    ],
+    linkstatic = True,
     deps = [":calendar_intervals"],
 )
