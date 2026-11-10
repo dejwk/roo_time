@@ -253,6 +253,95 @@ TEST(TimeZone, FixedCalendarSpans) {
   }
 }
 
+// Verifies maximal spans chain contiguously across the entire calendar range,
+// including exact changes, fractional/negative adjustments and both year edges.
+TEST(TimeZone, RecurringCalendarSpanChains) {
+  const SeasonalRules patterns[] = {
+      rules::EuSummerTime(), rules::UsDstSince2007(),
+      rules::AustralianEasternDst(), rules::LordHoweDst()};
+  const int bases[] = {60, -300, 660, 660};
+  for (int i = 0; i < 4; ++i) {
+    RecurringTimeZone zone(UtcOffset(Minutes(bases[i])), patterns[i]);
+    TimeRange range{WallTime::Unset(), WallTime::Unset()};
+    ASSERT_EQ(CalendarStatus::kOk, zone.calendarRange(range));
+    const WallTime lower = Utc(1, 1, 1);
+    const WallTime upper = Utc(9999, 12, 31) + Hours(24);
+    const int adjusted = bases[i] + patterns[i].adjustment.inMinutes();
+    EXPECT_EQ(bases[i] < 0 ? lower - Minutes(bases[i]) : lower, range.begin);
+    const int maximum = bases[i] > adjusted ? bases[i] : adjusted;
+    EXPECT_EQ(maximum > 0 ? upper - Minutes(maximum) : upper, range.end);
+    WallTime cursor = range.begin;
+    UtcOffset previous;
+    int count = 0;
+    while (cursor < range.end) {
+      OffsetSpan span{range, timezone::UTC};
+      ASSERT_EQ(CalendarStatus::kOk, zone.offsetSpanAt(cursor, span));
+      ASSERT_EQ(cursor, span.range.begin);
+      ASSERT_GT(span.range.end, cursor);
+      ASSERT_LE(span.range.end, range.end);
+      if (count != 0) {
+        EXPECT_NE(previous, span.offset);
+      }
+      EXPECT_EQ(zone.resolveOffset(cursor), span.offset);
+      EXPECT_EQ(zone.resolveOffset(span.range.end - Micros(1)), span.offset);
+      OffsetSpan tail{range, timezone::UTC};
+      ASSERT_EQ(CalendarStatus::kOk,
+                zone.offsetSpanAt(span.range.end - Micros(1), tail));
+      EXPECT_EQ(span.range.begin, tail.range.begin);
+      EXPECT_EQ(span.range.end, tail.range.end);
+      previous = span.offset;
+      cursor = span.range.end;
+      ASSERT_LE(++count, 20000);
+    }
+    EXPECT_EQ(19999, count);
+    OffsetSpan saved{range, timezone::UTC};
+    EXPECT_EQ(CalendarStatus::kOutOfRange,
+              zone.offsetSpanAt(range.begin - Micros(1), saved));
+    EXPECT_EQ(CalendarStatus::kOutOfRange, zone.offsetSpanAt(range.end, saved));
+    EXPECT_EQ(CalendarStatus::kInvalidArgument,
+              zone.offsetSpanAt(WallTime::Unset(), saved));
+    EXPECT_EQ(range.begin, saved.range.begin);
+    EXPECT_EQ(range.end, saved.range.end);
+    EXPECT_EQ(timezone::UTC, saved.offset);
+  }
+}
+
+// Verifies zero seasonal adjustment coalesces every rule event into one span.
+TEST(TimeZone, ZeroAdjustmentCalendarSpan) {
+  SeasonalRules pattern = rules::EuSummerTime();
+  pattern.adjustment = timezone::UTC;
+  RecurringTimeZone zone(UtcOffset(Minutes(-330)), pattern);
+  TimeRange range{WallTime::Unset(), WallTime::Unset()};
+  ASSERT_EQ(CalendarStatus::kOk, zone.calendarRange(range));
+  for (WallTime instant :
+       {range.begin, Utc(2026, 3, 29, 1), range.end - Micros(1)}) {
+    OffsetSpan span{range, timezone::UTC};
+    ASSERT_EQ(CalendarStatus::kOk, zone.offsetSpanAt(instant, span));
+    EXPECT_EQ(range.begin, span.range.begin);
+    EXPECT_EQ(range.end, span.range.end);
+    EXPECT_EQ(UtcOffset(Minutes(-330)), span.offset);
+  }
+}
+
+// Verifies the offset at a transition owns the new span, including when the
+// first annual change is exactly the first instant of a UTC year.
+TEST(TimeZone, CalendarSpanTransitionOwnership) {
+  SeasonalRules pattern = {
+      {AnnualDateRule::OnDay(kJanuary, 1), 0, TransitionTimeBasis::kUtc},
+      {AnnualDateRule::OnDay(kDecember, 31), 0, TransitionTimeBasis::kUtc},
+      UtcOffset(Minutes(30))};
+  RecurringTimeZone zone(timezone::UTC, pattern);
+  TimeRange range{WallTime::Unset(), WallTime::Unset()};
+  ASSERT_EQ(CalendarStatus::kOk, zone.calendarRange(range));
+  for (int year : {1, 2, 2026, 9999}) {
+    OffsetSpan span{range, timezone::UTC};
+    ASSERT_EQ(CalendarStatus::kOk, zone.offsetSpanAt(Utc(year, 1, 1), span));
+    EXPECT_EQ(Utc(year, 1, 1), span.range.begin);
+    EXPECT_EQ(Utc(year, 12, 31), span.range.end);
+    EXPECT_EQ(UtcOffset(Minutes(30)), span.offset);
+  }
+}
+
 // Verifies formatting resolves once per call.
 TEST(TimeZone, FormattingResolvesOnce) {
   CountingZone zone;

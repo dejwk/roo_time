@@ -227,3 +227,29 @@ Fixed zones publish `[max(L, L - offset), min(U, U - offset))`, where `L` is
 UTC 0001-01-01 and `U` is the arithmetic instant following UTC 9999-12-31.
 Unset span queries return `kInvalidArgument`; queries outside the range return
 `kOutOfRange`. The forward and reverse lookup contracts above are unchanged.
+
+Recurring zones use the same safe-range formula with the minimum and maximum
+of base and adjusted offsets. `offsetSpanAt` inspects the current and adjacent
+UTC years with constant work. A zero adjustment produces one span for the full
+calendar range. To walk real changes, query again at each exclusive span end:
+
+```cpp
+RecurringTimeZone zone(UtcOffset(Hours(1)), rules::EuSummerTime());
+TimeRange range{WallTime::Unset(), WallTime::Unset()};
+if (zone.calendarRange(range) == CalendarStatus::kOk) {
+  WallTime cursor = DateTime(2026, 1, 1, timezone::UTC).wallTime();
+  const WallTime stop = DateTime(2027, 1, 1, timezone::UTC).wallTime();
+  while (cursor < stop) {
+    OffsetSpan span{range, timezone::UTC};
+    if (zone.offsetSpanAt(cursor, span) != CalendarStatus::kOk) break;
+    // span.offset applies up to span.range.end, exclusively.
+    cursor = span.range.end;
+  }
+}
+```
+
+Custom calendar providers implement all three optional queries. Their spans
+must be maximal, cover the declared range contiguously and make progress;
+transitions with equal offsets must be coalesced. Document the cost of these
+queries when it is not constant. The recurring-rule limitations above still
+apply; span traversal does not provide historical named-zone data.

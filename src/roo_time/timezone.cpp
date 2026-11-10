@@ -1,5 +1,7 @@
 #include "roo_time/timezone.h"
 
+#include <initializer_list>
+
 namespace roo_time {
 namespace {
 
@@ -140,6 +142,47 @@ UtcOffset RecurringTimeZone::resolveOffset(WallTime instant) const {
   return adjusted ? UtcOffset(base_offset_.asDuration() +
                               rules_.adjustment.asDuration())
                   : base_offset_;
+}
+
+CalendarStatus RecurringTimeZone::calendarRange(TimeRange& out) const {
+  const UtcOffset adjusted(base_offset_.asDuration() +
+                           rules_.adjustment.asDuration());
+  out = adjusted.inMinutes() < base_offset_.inMinutes()
+            ? SafeCalendarRange(adjusted, base_offset_)
+            : SafeCalendarRange(base_offset_, adjusted);
+  return CalendarStatus::kOk;
+}
+
+CalendarStatus RecurringTimeZone::offsetSpanAt(WallTime instant,
+                                               OffsetSpan& out) const {
+  if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
+  TimeRange range{WallTime::Unset(), WallTime::Unset()};
+  calendarRange(range);
+  if (instant < range.begin || instant >= range.end)
+    return CalendarStatus::kOutOfRange;
+  if (rules_.adjustment.inMinutes() == 0) {
+    out = {range, base_offset_};
+    return CalendarStatus::kOk;
+  }
+
+  // Both annual changes lie in their UTC year. Three years therefore include
+  // the nearest change on either side, with explicit guards at calendar edges.
+  const int year = DateTime(instant, timezone::UTC).year();
+  const int first_year = year == 1 ? 1 : year - 1;
+  const int last_year = year == 9999 ? 9999 : year + 1;
+  for (int y = first_year; y <= last_year; ++y) {
+    for (const AnnualTransition& rule :
+         {rules_.first_transition, rules_.second_transition}) {
+      const WallTime transition =
+          TransitionAt(rule, y, base_offset_, rules_.adjustment);
+      if (transition <= instant && transition > range.begin)
+        range.begin = transition;
+      if (transition > instant && transition < range.end)
+        range.end = transition;
+    }
+  }
+  out = {range, resolveOffset(instant)};
+  return CalendarStatus::kOk;
 }
 
 LocalTimeResolution RecurringTimeZone::resolveLocal(CivilDay date,

@@ -249,6 +249,15 @@ class RecurringTimeZone final : public TimeZone {
   LocalTimeResolution resolveLocal(CivilDay date,
                                    TimeOfDay time) const override;
 
+  /// Returns a conservative range keeping UTC and both possible local offsets
+  /// inside calendar years 1-9999, without changing forward-lookup bounds.
+  CalendarStatus calendarRange(TimeRange& out) const override;
+
+  /// Finds the nearest annual offset changes in the current/adjacent UTC years.
+  /// Constant work, including range edges; zero adjustment yields one span.
+  /// Invalid input preserves out.
+  CalendarStatus offsetSpanAt(WallTime instant, OffsetSpan& out) const override;
+
  private:
   UtcOffset base_offset_;
   SeasonalRules rules_;

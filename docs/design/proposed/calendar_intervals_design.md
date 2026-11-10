@@ -1,6 +1,6 @@
 # Calendar intervals and timezone spans
 
-Status: **T1 implemented; T2–T4 pending.** Written 2026-11-10 against `roo_time`
+Status: **T1–T2 implemented; T3–T4 pending.** Written 2026-11-10 against `roo_time`
 commit `0f235f6`.
 
 ## Objective
