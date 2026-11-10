@@ -168,3 +168,6 @@ roo_testing and roo_threads overrides are required until matching releases are
 published. The shared emulated uptime/delay implementation is used by both
 Pico profiles; normal and AddressSanitizer client validation is provided by
 roo_testing's `test/pico_clients/verify_clients.py`.
+
+For bounded calendar-aligned boundaries, see the optional
+[calendar interval guide](docs/calendar_intervals.md).

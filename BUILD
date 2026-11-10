@@ -356,3 +356,35 @@ cc_library(
     srcs = [":readme_examples_source"],
     deps = [":roo_time"],
 )
+
+# Calendar enumeration stays optional for elapsed-time-only consumers.
+cc_library(
+    name = "calendar_intervals",
+    srcs = ["src/roo_time/calendar_interval.cpp"],
+    hdrs = ["src/roo_time/calendar_interval.h"],
+    visibility = ["//visibility:public"],
+    deps = [":core"],
+)
+
+cc_test(
+    name = "calendar_interval_test",
+    size = "small",
+    srcs = ["test/calendar_interval_test.cpp", "test/synthetic_calendar_zone.h"],
+    deps = [":calendar_intervals", "@googletest//:gtest_main"],
+)
+
+# Compile and execute the complete example directly from the calendar guide.
+genrule(
+    name = "calendar_interval_example_source",
+    srcs = ["docs/calendar_intervals.md"],
+    outs = ["calendar_interval_example.cpp"],
+    tools = ["test/calendar_interval_example.awk"],
+    cmd = "awk -f $(location test/calendar_interval_example.awk) $(location docs/calendar_intervals.md) > $@",
+)
+
+cc_test(
+    name = "calendar_interval_example_compile",
+    size = "small",
+    srcs = [":calendar_interval_example_source"],
+    deps = [":calendar_intervals"],
+)
