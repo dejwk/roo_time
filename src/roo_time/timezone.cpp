@@ -31,7 +31,38 @@ WallTime CalendarEnd() {
   return DateTime(9999, 12, 31, timezone::UTC).wallTime() + Hours(24);
 }
 
+// Keeps UTC and every possible local offset inside calendar years 1-9999.
+TimeRange SafeCalendarRange(UtcOffset minimum, UtcOffset maximum) {
+  const WallTime lower = CalendarBegin();
+  const WallTime upper = CalendarEnd();
+  return {minimum.inMinutes() < 0 ? lower - minimum.asDuration() : lower,
+          maximum.inMinutes() > 0 ? upper - maximum.asDuration() : upper};
+}
+
 }  // namespace
+
+CalendarStatus TimeZone::calendarRange(TimeRange&) const {
+  return CalendarStatus::kUnsupported;
+}
+
+CalendarStatus TimeZone::offsetSpanAt(WallTime, OffsetSpan&) const {
+  return CalendarStatus::kUnsupported;
+}
+
+CalendarStatus FixedTimeZone::calendarRange(TimeRange& out) const {
+  out = SafeCalendarRange(offset_, offset_);
+  return CalendarStatus::kOk;
+}
+
+CalendarStatus FixedTimeZone::offsetSpanAt(WallTime instant,
+                                           OffsetSpan& out) const {
+  if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
+  const TimeRange range = SafeCalendarRange(offset_, offset_);
+  if (instant < range.begin || instant >= range.end)
+    return CalendarStatus::kOutOfRange;
+  out = {range, offset_};
+  return CalendarStatus::kOk;
+}
 
 LocalTimeResolution TimeZone::resolveLocal(CivilDay date,
                                            TimeOfDay time) const {

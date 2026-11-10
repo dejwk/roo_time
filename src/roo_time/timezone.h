@@ -4,6 +4,31 @@
 
 namespace roo_time {
 
+/// Outcome of calendar traversal or a provider capability query.
+enum class CalendarStatus : uint8_t {
+  kOk,
+  kStopped,
+  kInvalidArgument,
+  kUnsupported,
+  kOutOfRange,
+  kLimitExceeded,
+  kProviderError
+};
+
+/// Half-open UTC interval. The exclusive end is an arithmetic sentinel and
+/// need not support calendar conversion; begin and end must both be set.
+struct TimeRange {
+  WallTime begin;
+  WallTime end;
+};
+
+/// Maximal constant-offset interval, clipped to a provider's calendar range.
+/// A transition belongs to the new span. Adjacent spans have distinct offsets.
+struct OffsetSpan {
+  TimeRange range;
+  UtcOffset offset;
+};
+
 /// Describes how a local date and clock reading map to UTC instants.
 enum class LocalTimeStatus {
   /// Exactly one supported UTC instant matches.
@@ -61,6 +86,20 @@ class TimeZone {
   /// const calls. The default returns kUnsupported for valid inputs, preserving
   /// source compatibility for existing forward-only zones. Override to opt in.
   virtual LocalTimeResolution resolveLocal(CivilDay date, TimeOfDay time) const;
+
+  /// Publishes the nonempty UTC range supporting calendar traversal, forward
+  /// conversion to local years 1-9999, and reverse resolution of those fields.
+  /// The range excludes unset; end - Micros(1) is valid. The exclusive end must
+  /// not be converted. Calendar providers also implement offsetSpanAt and
+  /// resolveLocal. Default returns kUnsupported. Failure preserves @p out.
+  virtual CalendarStatus calendarRange(TimeRange& out) const;
+
+  /// Locates the maximal constant-offset span containing @p instant, clipped
+  /// to calendarRange. On success begin <= instant < end; adjacent spans touch
+  /// and have distinct offsets, including across equal-offset rule events.
+  /// Unset input is kInvalidArgument, outside the range is kOutOfRange.
+  /// Default returns kUnsupported. Failure preserves @p out.
+  virtual CalendarStatus offsetSpanAt(WallTime instant, OffsetSpan& out) const;
 };
 
 /// A fixed offset, valid for the entire WallTime range.
@@ -82,6 +121,13 @@ class FixedTimeZone final : public TimeZone {
   /// the full WallTime range. Invalid local fields return kInvalidInput.
   LocalTimeResolution resolveLocal(CivilDay date,
                                    TimeOfDay time) const override;
+
+  /// Returns the conservative range keeping both UTC and local years 1-9999.
+  /// This is narrower than resolveOffset's full WallTime range.
+  CalendarStatus calendarRange(TimeRange& out) const override;
+
+  /// Returns the one constant-offset span, or preserves out on invalid input.
+  CalendarStatus offsetSpanAt(WallTime instant, OffsetSpan& out) const override;
 
  private:
   UtcOffset offset_;

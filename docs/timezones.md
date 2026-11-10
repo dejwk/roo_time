@@ -200,3 +200,30 @@ Override it to provide reverse resolution, preserving the result invariants
 and concurrent-const-call contract. The free function validates inputs before
 dispatch; direct built-in method calls also validate inputs. Default-constructed
 `LocalTimeResolution` is unsupported with both instants unset.
+
+## Calendar ranges and offset spans
+
+`calendarRange` and `offsetSpanAt` are optional queries. Their default returns
+`CalendarStatus::kUnsupported`, preserving output arguments. Calendar traversal
+requires both queries and reverse resolution; forward-only subclasses continue
+to work with formatting. AceTime currently has no calendar traversal capability.
+
+A calendar range is a nonempty `[begin, end)` UTC interval where UTC and local
+calendar fields are representable. The exclusive end is an arithmetic sentinel:
+convert `end - Micros(1)`, never `end`. This range can be narrower than the
+provider's forward-lookup range. Failures leave query outputs unchanged.
+
+```cpp
+FixedTimeZone india(UtcOffset(Minutes(330)));
+TimeRange range{WallTime::Unset(), WallTime::Unset()};
+if (india.calendarRange(range) == CalendarStatus::kOk) {
+  OffsetSpan span{range, timezone::UTC};
+  CalendarStatus status = india.offsetSpanAt(range.begin, span);
+  // status == kOk; one maximal span covers range with offset +05:30.
+}
+```
+
+Fixed zones publish `[max(L, L - offset), min(U, U - offset))`, where `L` is
+UTC 0001-01-01 and `U` is the arithmetic instant following UTC 9999-12-31.
+Unset span queries return `kInvalidArgument`; queries outside the range return
+`kOutOfRange`. The forward and reverse lookup contracts above are unchanged.

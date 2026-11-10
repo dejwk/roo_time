@@ -202,6 +202,57 @@ class CountingZone : public TimeZone {
   }
 };
 
+// Verifies legacy forward-only zones preserve outputs on unsupported queries.
+TEST(TimeZone, UnsupportedCalendarQueries) {
+  CountingZone zone;
+  TimeRange range{Utc(2000, 1, 1), Utc(2001, 1, 1)};
+  OffsetSpan span{range, UtcOffset(Hours(2))};
+  EXPECT_EQ(CalendarStatus::kUnsupported, zone.calendarRange(range));
+  EXPECT_EQ(CalendarStatus::kUnsupported, zone.offsetSpanAt(range.begin, span));
+  EXPECT_EQ(Utc(2000, 1, 1), range.begin);
+  EXPECT_EQ(Utc(2001, 1, 1), range.end);
+  EXPECT_EQ(range.begin, span.range.begin);
+  EXPECT_EQ(range.end, span.range.end);
+  EXPECT_EQ(UtcOffset(Hours(2)), span.offset);
+  EXPECT_EQ(0, zone.calls);
+}
+
+// Verifies safe endpoints, maximality and preserved outputs for every offset,
+// including the signed 16-bit extremes and fractional-hour configurations.
+TEST(TimeZone, FixedCalendarSpans) {
+  const WallTime lower = Utc(1, 1, 1);
+  const WallTime upper = Utc(9999, 12, 31) + Hours(24);
+  for (int minutes : {INT16_MIN, -330, 0, 345, INT16_MAX}) {
+    const UtcOffset offset{Minutes(minutes)};
+    FixedTimeZone zone(offset);
+    TimeRange range{WallTime::Unset(), WallTime::Unset()};
+    ASSERT_EQ(CalendarStatus::kOk, zone.calendarRange(range));
+    EXPECT_EQ(minutes < 0 ? lower - offset.asDuration() : lower, range.begin);
+    EXPECT_EQ(minutes > 0 ? upper - offset.asDuration() : upper, range.end);
+    OffsetSpan span{range, timezone::UTC};
+    for (WallTime instant :
+         {range.begin, WallTime::Epoch(), range.end - Micros(1)}) {
+      ASSERT_EQ(CalendarStatus::kOk, zone.offsetSpanAt(instant, span));
+      EXPECT_EQ(range.begin, span.range.begin);
+      EXPECT_EQ(range.end, span.range.end);
+      EXPECT_EQ(offset, span.offset);
+      const DateTime local = ToLocal(instant, zone);
+      const LocalTimeResolution reverse =
+          zone.resolveLocal(local.civilDay(), local.timeOfDay());
+      EXPECT_EQ(LocalTimeStatus::kUnique, reverse.status);
+      EXPECT_EQ(instant, reverse.first);
+    }
+    EXPECT_EQ(CalendarStatus::kOutOfRange,
+              zone.offsetSpanAt(range.begin - Micros(1), span));
+    EXPECT_EQ(CalendarStatus::kOutOfRange, zone.offsetSpanAt(range.end, span));
+    EXPECT_EQ(CalendarStatus::kInvalidArgument,
+              zone.offsetSpanAt(WallTime::Unset(), span));
+    EXPECT_EQ(range.begin, span.range.begin);
+    EXPECT_EQ(range.end, span.range.end);
+    EXPECT_EQ(offset, span.offset);
+  }
+}
+
 // Verifies formatting resolves once per call.
 TEST(TimeZone, FormattingResolvesOnce) {
   CountingZone zone;
