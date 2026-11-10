@@ -388,3 +388,28 @@ cc_test(
     srcs = [":calendar_interval_example_source"],
     deps = [":calendar_intervals"],
 )
+
+cc_test(
+    name = "calendar_provider_test",
+    size = "small",
+    srcs = [
+        "test/calendar_provider_test.cpp",
+        "test/synthetic_calendar_zone.h",
+        "test/stubs/AceTime.h",
+    ],
+    includes = ["test/stubs"],
+    deps = [":calendar_intervals", ":acetime", "@googletest//:gtest_main"],
+)
+
+cc_test(
+    name = "calendar_no_allocation_test",
+    size = "small",
+    linkstatic = True,
+    srcs = [
+        "test/calendar_no_allocation_test.cpp",
+        "test/synthetic_calendar_zone.h",
+    ],
+    copts = ["-fno-exceptions", "-fno-rtti"],
+    linkopts = ["-Wl,--wrap=malloc", "-Wl,--wrap=calloc", "-Wl,--wrap=realloc"],
+    deps = [":calendar_intervals"],
+)

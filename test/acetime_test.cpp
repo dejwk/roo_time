@@ -10,5 +10,16 @@ int main() {
   if (zone.resolveOffset(WallTime::SinceEpoch(Micros(-1))).asDuration() !=
       Minutes(-330))
     return 2;
+  // Verifies the adapter explicitly remains forward-only for calendar queries.
+  TimeRange range{WallTime::Epoch(), WallTime::Epoch() + Hours(24)};
+  OffsetSpan span{range, UtcOffset(Hours(3))};
+  if (zone.calendarRange(range) != CalendarStatus::kUnsupported) return 3;
+  if (zone.offsetSpanAt(range.begin, span) != CalendarStatus::kUnsupported)
+    return 4;
+  if (range.begin != WallTime::Epoch() ||
+      range.end != WallTime::Epoch() + Hours(24) ||
+      span.range.begin != range.begin || span.range.end != range.end ||
+      span.offset != UtcOffset(Hours(3)))
+    return 5;
   return 0;
 }

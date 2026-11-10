@@ -100,3 +100,7 @@ calls. A centuries-long view can cross thousands of spans even with few year
 boundaries. Recurring zones apply their configured rules proleptically; they
 are not historical named-zone databases. All dates are Gregorian years 1–9999
 and use POSIX time without leap seconds.
+
+Measured 32-bit object sizes, stack frames and linked consumer flash deltas are
+recorded in [resource acceptance](calendar_interval_resources.md), with a
+reproducible measurement script.

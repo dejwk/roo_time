@@ -1,7 +1,14 @@
 # Calendar intervals and timezone spans
 
-Status: **T1–T3 implemented; T4 pending.** Written 2026-11-10 against `roo_time`
+Status: **Implemented (T1–T4).** Written 2026-11-10 against `roo_time`
 commit `0f235f6`.
+
+The implementation is documented in the [calendar guide](../../calendar_intervals.md)
+and [provider guide](../../timezones.md#calendar-ranges-and-offset-spans).
+[Resource acceptance](../../calendar_interval_resources.md) records the measured
+32-bit sizes, compiler stack frames and linked flash deltas. All four phase
+gates passed, including allocation traps and synthetic provider conformance.
+The Background below describes the original baseline.
 
 ## Objective
 

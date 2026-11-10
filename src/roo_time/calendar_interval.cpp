@@ -64,9 +64,10 @@ int64_t FirstBoundary(int64_t local, CalendarInterval interval) {
       // Year zero is an alignment coordinate, never a converted calendar date.
       int y = interval.unit == CalendarUnit::kMonth ? aligned / 12 : aligned;
       int m = interval.unit == CalendarUnit::kMonth ? aligned % 12 + 1 : 1;
-      if (y >= 1 &&
-          int64_t{internal::DaysFromCivil(y, m, 1)} * kDayMicros >= local) {
-        return int64_t{internal::DaysFromCivil(y, m, 1)} * kDayMicros;
+      if (y >= 1) {
+        const int64_t first =
+            int64_t{internal::DaysFromCivil(y, m, 1)} * kDayMicros;
+        if (first >= local) return first;
       }
       aligned += interval.step;
       y = interval.unit == CalendarUnit::kMonth ? aligned / 12 : aligned;
@@ -82,11 +83,19 @@ int64_t FirstBoundary(int64_t local, CalendarInterval interval) {
 
 // Validates all reverse-result invariants, including the occurrence outside the
 // viewport. A provider's supported-range edge may legitimately be unique.
-CalendarStatus Classify(const TimeZone& zone, WallTime instant,
-                        UtcOffset offset, LocalOccurrence& occurrence) {
-  const DateTime local(instant, offset);
+CalendarStatus Classify(const TimeZone& zone, int64_t local, WallTime instant,
+                        LocalOccurrence& occurrence) {
+  // Decode only the fields needed by reverse lookup. A DateTime would also
+  // retain a redundant instant, offset and derived fields on the stack.
+  const int32_t epoch_day = static_cast<int32_t>(FloorDiv(local, kDayMicros));
+  int16_t year;
+  uint8_t month;
+  uint8_t day;
+  internal::CivilFromDays(epoch_day, &year, &month, &day);
   const LocalTimeResolution reverse =
-      zone.resolveLocal(local.civilDay(), local.timeOfDay());
+      zone.resolveLocal(CivilDay::FromYmd(year, month, day),
+                        TimeOfDay::FromSinceMidnight(
+                            Micros(local - int64_t{epoch_day} * kDayMicros)));
   if (reverse.status == LocalTimeStatus::kUnsupported)
     return CalendarStatus::kUnsupported;
   if (reverse.status == LocalTimeStatus::kUnique && reverse.first == instant &&
@@ -127,7 +136,7 @@ CalendarStatus VisitSpan(TimeRange range, UtcOffset offset,
     CalendarBoundary boundary{WallTime::SinceEpoch(Micros(local - shift)),
                               offset, LocalOccurrence::kUnique};
     const CalendarStatus status =
-        Classify(zone, boundary.instant, offset, boundary.occurrence);
+        Classify(zone, local, boundary.instant, boundary.occurrence);
     if (status != CalendarStatus::kOk) return status;
     if (!visitor(context, boundary)) return CalendarStatus::kStopped;
     local = FirstBoundary(local + 1, interval);
@@ -177,7 +186,10 @@ CalendarStatus EnumerateCalendarBoundaries(
     return CalendarStatus::kInvalidArgument;
   TimeRange supported{WallTime::Unset(), WallTime::Unset()};
   CalendarStatus status = zone.calendarRange(supported);
-  if (status != CalendarStatus::kOk) return status;
+  if (status != CalendarStatus::kOk)
+    return status == CalendarStatus::kUnsupported
+               ? status
+               : CalendarStatus::kProviderError;
   if (!supported.begin.isSet() || !supported.end.isSet() ||
       supported.begin >= supported.end ||
       supported.begin.sinceEpoch().inMicros() < kCalendarBegin ||
@@ -195,7 +207,10 @@ CalendarStatus EnumerateCalendarBoundaries(
     --work_remaining;
     OffsetSpan span{{WallTime::Unset(), WallTime::Unset()}, timezone::UTC};
     status = zone.offsetSpanAt(cursor, span);
-    if (status != CalendarStatus::kOk) return status;
+    if (status != CalendarStatus::kOk)
+      return status == CalendarStatus::kUnsupported
+                 ? status
+                 : CalendarStatus::kProviderError;
     if (!span.range.begin.isSet() || !span.range.end.isSet() ||
         span.range.begin < supported.begin || span.range.end > supported.end ||
         span.range.begin > cursor || span.range.end <= cursor ||

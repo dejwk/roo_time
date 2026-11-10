@@ -11,11 +11,13 @@ namespace testing {
 /// Query cost is O(change_count); test tables have at most two reverse matches.
 class SyntheticCalendarZone : public TimeZone {
  public:
+  /// One actual offset change, ordered strictly by UTC instant.
   struct Change {
     WallTime instant;
     UtcOffset after;
   };
 
+  /// Borrows an ordered table with distinct adjacent offsets inside range.
   SyntheticCalendarZone(TimeRange range, UtcOffset initial,
                         const Change* changes, size_t change_count)
       : range_(range),
@@ -23,6 +25,7 @@ class SyntheticCalendarZone : public TimeZone {
         changes_(changes),
         change_count_(change_count) {}
 
+  /// Finds the last applicable transition by scanning the small table.
   UtcOffset resolveOffset(WallTime instant) const override {
     UtcOffset offset = initial_;
     for (size_t i = 0; i < change_count_; ++i) {
@@ -32,11 +35,13 @@ class SyntheticCalendarZone : public TimeZone {
     return offset;
   }
 
+  /// Returns the declared contiguous calendar range.
   CalendarStatus calendarRange(TimeRange& out) const override {
     out = range_;
     return CalendarStatus::kOk;
   }
 
+  /// Returns the table segment containing the instant.
   CalendarStatus offsetSpanAt(WallTime instant,
                               OffsetSpan& out) const override {
     if (!instant.isSet()) return CalendarStatus::kInvalidArgument;
@@ -54,6 +59,7 @@ class SyntheticCalendarZone : public TimeZone {
     return CalendarStatus::kOk;
   }
 
+  /// Searches all segments in UTC order for matching local readings.
   LocalTimeResolution resolveLocal(CivilDay date,
                                    TimeOfDay time) const override {
     DateTime local;
