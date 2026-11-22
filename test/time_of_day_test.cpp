@@ -27,7 +27,7 @@ TEST(TimeOfDay, CheckedConstructionAndComponents) {
           EXPECT_EQ(hour, time.hour());
           EXPECT_EQ(minute, time.minute());
           EXPECT_EQ(second, time.second());
-          EXPECT_EQ(micros, time.micros());
+          EXPECT_EQ(static_cast<uint32_t>(micros), time.micros());
           EXPECT_EQ(time, TimeOfDay::FromSinceMidnight(time.sinceMidnight()));
         }
       }
