@@ -1,3 +1,11 @@
+# roo_time 2.2.1
+
+- Updated `roo_testing` to 2.7.0 for Bazel and CI.
+- Raised the minimum `roo_backport` version to 1.3.0 in Bazel and PlatformIO.
+- Updated `roo_time/format.h` to include `roo_backport.h` before the backport’s string-view header when string-view support is enabled.
+
+---
+
 # roo_time 2.2.0
 
 - Added `EnumerateCalendarBoundaries()` in the optional Bazel `//:calendar_intervals` target. It visits local calendar boundaries from milliseconds through years in UTC order without allocating. It supports configurable day and week anchors, skips DST gaps, distinguishes both occurrences of repeated local times, and supports a shared work budget and early stopping.
