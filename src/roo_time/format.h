@@ -30,6 +30,7 @@
 #include <string>
 #endif
 #if ROO_TIME_HAS_STRING_VIEW
+#include "roo_backport.h"
 #include "roo_backport/string_view.h"
 #endif
 #if defined(ARDUINO)
