@@ -1,3 +1,12 @@
+# roo_time 2.2.0
+
+- Added `EnumerateCalendarBoundaries()` in the optional Bazel `//:calendar_intervals` target. It visits local calendar boundaries from milliseconds through years in UTC order without allocating. It supports configurable day and week anchors, skips DST gaps, distinguishes both occurrences of repeated local times, and supports a shared work budget and early stopping.
+- Added `TimeZone::calendarRange()` and `TimeZone::offsetSpanAt()` for fixed and recurring timezones. Custom providers can opt in, and the current AceTime adapter reports `kUnsupported`.
+- Added a calendar interval guide with a tested example, plus coverage for skipped dates, provider contract violations, and allocation-free traversal. Documented measured 32-bit resource usage.
+- Updated `roo_testing` to 2.6.0 for Bazel and CI, including the renamed ESP32 CI profiles. Raised the `roo_backport` requirement to 1.2.5 in Bazel and PlatformIO.
+
+---
+
 # roo_time 2.1.0
 
 - Added checked `TimeOfDay` values with microsecond precision, allocation-free formatting/parsing, and `DateTime` composition. Added `DateTime::TryFromComponents()` to validate fields while preserving output on failure.
